@@ -1,137 +1,109 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for most data,
- *   allowing users to manage their profiles and wishlists. Public read access is granted
- *   for listings, while ownership is enforced for creating, updating, and deleting them.
- *   The rules prioritize security and data integrity, with specific checks to prevent
- *   unauthorized access and modifications.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profiles; only the owner can read or write.
- * - /listings/{listingId}: Stores listing data; publicly readable but owner-only write access.
- * - /chat_messages/{chatMessageId}: Stores chat messages; no specific rules are enforced here.
- * - /users/{userId}/wishlists/{wishlistId}: Stores wishlists; only the owner can read or write.
- * - /reports/{reportId}: Stores reports; no specific rules are enforced here.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect privacy.
- * - Read-only collections are handled with `allow get, list: if true;`.
- * - All write operations are strictly controlled via ownership checks or other authorization mechanisms.
- * - Admin privileges are not considered in this simplified ruleset.
- *
- * Denormalization for Authorization:
- * - Listings denormalize the `userId` to allow for efficient ownership checks without extra reads.
- *
- * Structural Segregation:
- * - No explicit segregation of public/private data is used beyond public read for listings.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Enforces user-level access control for user profiles. Only the user can read or write their own profile.
      * @path /users/{userId}
-     * @allow (get, create, update, delete) if the user is the owner of the profile.
-     * @deny (get, create, update, delete) if the user is not the owner of the profile.
+     * @allow (get, create, update, delete) if the user's UID matches the userId in the path.
+     * @deny (get, create, update, delete) if the user's UID does not match the userId in the path.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if false;
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.auth.uid == userId;
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Controls access to listing documents.
+     * @description Allows public read access to listings but restricts write access to the listing owner.
      * @path /listings/{listingId}
-     * @allow (get, list) to anyone.
-     * @allow (create) if the user is authenticated and the listing's userId matches their auth UID.
-     * @allow (update, delete) if the user is the owner of the listing.
-     * @deny (create, update, delete) if the user is not the owner of the listing.
-     * @principle Allows public read access but enforces ownership for writes.
+     * @allow (get, list) any authenticated or unauthenticated user.
+     * @allow (create) only if the userId field in the request matches the authenticated user's UID.
+     * @allow (update, delete) only if the user is the owner of the listing.
+     * @deny (create) if the userId field in the request does not match the authenticated user's UID.
+     * @deny (update, delete) if the user is not the owner of the listing.
+     * @principle Implements public read with owner-only writes, validating ownership on write operations.
      */
     match /listings/{listingId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.userId);
-      allow delete: if isExistingOwner(resource.data.userId);
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     /**
-     * @description Controls access to chat message documents.
-     * @path /chat_messages/{chatMessageId}
-     * @allow get, list, create, update, delete: if false;
-     * @principle No specific rules are enforced for chat messages in this prototype.
+     * @description Enforces participant-based access control for conversations. Only participants can read and write conversation data.
+     * @path /conversations/{conversationId}
+     * @allow (get, list) if the user's UID is in the participants array.
+     * @allow (create, update, delete) if the user's UID is in the participants array.
+     * @deny (get, list) if the user's UID is not in the participants array.
+     * @deny (create, update, delete) if the user's UID is not in the participants array.
+     * @principle Implements shared access based on a participants array within the document.
      */
-    match /chat_messages/{chatMessageId} {
-      allow get: if false;
+    match /conversations/{conversationId} {
+      function isParticipant() {
+        return request.auth != null && resource.data.participants.hasAny([request.auth.uid]);
+      }
+
+      allow get: if request.auth != null && resource.data.participants.hasAny([request.auth.uid]);
       allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if request.auth != null && request.resource.data.participants.hasAny([request.auth.uid]);
+      allow update: if request.auth != null && resource.data.participants.hasAny([request.auth.uid]);
+      allow delete: if request.auth != null && resource.data.participants.hasAny([request.auth.uid]);
     }
 
     /**
-     * @description Controls access to wishlist documents.
+     * @description Enforces participant-based access control for chat messages within a conversation. Only participants can read and write messages.
+     * @path /conversations/{conversationId}/messages/{messageId}
+     * @allow (get, list) if the user is a participant in the parent conversation.
+     * @allow (create, update, delete) if the user is a participant in the parent conversation.
+     * @deny (get, list) if the user is not a participant in the parent conversation.
+     * @deny (create, update, delete) if the user is not a participant in the parent conversation.
+     * @principle Implements shared access for subcollections based on a participants array in the parent document.
+     */
+    match /conversations/{conversationId}/messages/{messageId} {
+        function isParticipant() {
+            return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants.hasAny([request.auth.uid]);
+        }
+        allow get: if request.auth != null && isParticipant();
+        allow list: if false;
+        allow create: if request.auth != null && isParticipant();
+        allow update: if request.auth != null && isParticipant();
+        allow delete: if request.auth != null && isParticipant();
+    }
+
+    /**
+     * @description Enforces user-level access control for wishlists. Only the user can read or write their own wishlist.
      * @path /users/{userId}/wishlists/{wishlistId}
-     * @allow (get, create, update, delete) if the user is the owner of the wishlist.
-     * @deny (get, create, update, delete) if the user is not the owner of the wishlist.
-     * @principle Enforces document ownership for all operations within a user's data tree.
+     * @allow (get, create, update, delete) if the user's UID matches the userId in the path.
+     * @deny (get, create, update, delete) if the user's UID does not match the userId in the path.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/wishlists/{wishlistId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      allow list: if false;
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.auth.uid == userId;
+      allow delete: if isOwner(userId);
     }
 
     /**
-     * @description Controls access to report documents.
+     * @description Allows any authenticated user to create, read, update, or delete reports.
      * @path /reports/{reportId}
-     * @allow get, list, create, update, delete: if false;
-     * @principle No specific rules are enforced for reports in this prototype.
+     * @allow (get, list, create, update, delete) any authenticated user.
+     * @principle Open read and write access for reports
      */
     match /reports/{reportId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    //----------------------------------------------------------------------------------------------
-    // Helper Functions
-    //----------------------------------------------------------------------------------------------
-
-    /**
-     * @description Checks if the user is signed in.
-     * @return True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user is the owner of the resource.
-     * @param userId The user ID to check against.
-     * @return True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-        /**
-     * @description Checks if the user is the existing owner of the resource.
-     * @param userId The user ID to check against.
-     * @return True if the user is the owner, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId && resource != null;
+      allow get, list, create, update, delete: if request.auth != null;
     }
   }
 }
