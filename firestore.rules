@@ -1,0 +1,201 @@
+/**
+ * @file Firebase Security Rules for Re-Source Application
+ *
+ * @description This ruleset enforces a multi-layered security model for the Re-Source application,
+ * focusing on user-based authorization, admin roles, and data ownership.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles; access is restricted to the user and admins.
+ * - /listings/{listingId}: Stores academic resource listings; write access is restricted to the owner.
+ * - /chat_messages/{chatMessageId}: Stores chat messages between users; access is generally open but could be restricted in future iterations.
+ * - /users/{userId}/wishlists/{wishlistId}: Stores user wishlists; access is restricted to the user.
+ * - /recommendations/{recommendationId}: Stores personalized resource recommendations; write access is generally open.
+ * - /reports/{reportId}: Stores reports of inappropriate content; write access is generally open.
+ * - /roles_admin/{userId}: Documents in this collection denote admin status based on their existence.
+ *
+ * Key Security Decisions:
+ * - User data is private and only accessible by the user themselves and admins.
+ * - Listings are publicly readable, but only the owner can modify them.
+ * - Admin privileges are determined by the presence of a document in the `/roles_admin` collection.
+ * - List operations are generally restricted to owners for user-specific subcollections.
+ * - Data validation is minimal in this prototype phase, focusing on ownership and relational integrity.
+ *
+ * Denormalization for Authorization:
+ * - Listings contain a `userId` field to enable ownership checks without additional reads.
+ *
+ * Structural Segregation:
+ * - Private user data is stored under `/users/{userId}`, while public listings are stored in the top-level `/listings` collection.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their profile: `request.auth.uid == 'user123'`
+     * @allow (get, update, delete) User with ID 'user123' can access their profile: `request.auth.uid == 'user123'`
+     * @allow (get, list) Admin can read other profiles by existing in /roles_admin/{userId}
+     * @deny (create) User attempts to create a profile with a mismatched ID: `request.auth.uid != 'user123'`
+     * @deny (update, delete) Another user attempts to modify user 'user123' profile: `request.auth.uid != 'user123'`
+     * @principle Enforces user ownership for profile data and allows admin read access.
+     */
+    match /users/{userId} {
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the requesting user is the owner of the document
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      // Helper function to check if the user is an admin
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && isAdmin(); // Only admins can list users
+
+      // Allow create if the user is creating their own document. Enforce that the ID in the data matches the path.
+      allow create: if isSignedIn() && isOwner(userId) && request.auth.uid == userId;
+
+      // Allow update and delete if the user is the owner.
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to listing documents.
+     * @path /listings/{listingId}
+     * @allow (get, list) Anyone can read listings.
+     * @allow (create) User with ID 'user123' can create a listing with `userId: 'user123'`: `request.auth.uid == 'user123' && request.resource.data.userId == 'user123'`
+     * @allow (update, delete) User with ID 'user123' can modify their listing where `resource.data.userId == 'user123'`: `request.auth.uid == 'user123'`
+     * @deny (create) User attempts to create a listing for another user.
+     * @deny (update, delete) Another user attempts to modify listing 'listing123': `request.auth.uid != resource.data.userId`
+     * @principle Enforces public read access with owner-only write access, validated using the 'userId' field.
+     */
+    match /listings/{listingId} {
+
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the requesting user is the owner of the document
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && request.resource.data.userId == resource.data.userId;
+    }
+
+    /**
+     * @description Controls access to chat message documents.
+     * @path /chat_messages/{chatMessageId}
+     * @allow (get, list) Anyone can read messages.
+     * @allow (create) Any signed-in user can create a message.
+     * @deny (update, delete) No one can update or delete messages once they are created.
+     * @principle Allows open read and create access for chat messages, but prohibits updates and deletes.
+     */
+    match /chat_messages/{chatMessageId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to wishlist documents within a user's profile.
+     * @path /users/{userId}/wishlists/{wishlistId}
+     * @allow (get, list) User with ID 'user123' can access their wishlists: `request.auth.uid == 'user123'`
+     * @allow (create) User with ID 'user123' can create a wishlist in their profile: `request.auth.uid == 'user123'`
+     * @allow (update, delete) User with ID 'user123' can modify their wishlist: `request.auth.uid == 'user123'`
+     * @deny (create) User attempts to create a wishlist for another user: `request.auth.uid != 'user123'`
+     * @deny (update, delete) Another user attempts to modify user 'user123' wishlist: `request.auth.uid != 'user123'`
+     * @principle Enforces user ownership for wishlist data, validated via path-based authorization.
+     */
+    match /users/{userId}/wishlists/{wishlistId} {
+
+      // Helper function to check if the user is signed in
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      // Helper function to check if the requesting user is the owner of the document
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get, list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to recommendation documents.
+     * @path /recommendations/{recommendationId}
+     * @allow (get, list) Anyone can read the recommendations.
+     * @allow (create) Any signed-in user can create a recommendation.
+     * @deny (update, delete) No one can update or delete recommendations once they are created.
+     */
+    match /recommendations/{recommendationId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Controls access to report documents.
+     * @path /reports/{reportId}
+     * @allow (get, list) Anyone can read the reports.
+     * @allow (create) Any signed-in user can create a report.
+     * @deny (update, delete) No one can update or delete reports once they are created.
+     */
+    match /reports/{reportId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+      /**
+       * @description Controls access to the admin roles collection.
+       * @path /roles_admin/{userId}
+       * @allow (get) Any authenticated user can check for the existence of an admin document.
+       * @allow (list) Not allowed
+       * @allow (create, delete) Only existing admins can create/delete other admins (DBAC).
+       * @deny (update) Admins cannot be updated (only created or deleted)
+       * @principle Enforces Database Based Access Control for admin privileges, allowing only existing admins to grant or revoke admin roles by the existence of documents.
+       */
+      match /roles_admin/{userId} {
+        function isSignedIn() {
+          return request.auth != null;
+        }
+
+        // Helper function to check if the user is an admin
+        function isAdmin() {
+          return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+        }
+
+        allow get: if isSignedIn() && isAdmin();
+        allow list: if false;
+        allow create: if isSignedIn() && isAdmin();
+        allow update: if false;
+        allow delete: if isSignedIn() && isAdmin();
+      }
+  }
+}

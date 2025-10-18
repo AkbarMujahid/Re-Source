@@ -1,0 +1,354 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Re-Source application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Indicates if the user has administrator privileges."
+        },
+        "isBlocked": {
+          "type": "boolean",
+          "description": "Indicates if the user is blocked from using the application."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "isAdmin",
+        "isBlocked"
+      ]
+    },
+    "Listing": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Listing",
+      "type": "object",
+      "description": "Represents an academic resource listing.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the listing entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who created the listing. (Relationship: User 1:N Listing)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the listing."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the resource being listed."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the resource (e.g., textbook, notes)."
+        },
+        "department": {
+          "type": "string",
+          "description": "Department associated with the resource."
+        },
+        "semester": {
+          "type": "string",
+          "description": "Semester for which the resource is relevant."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the resource."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image associated with the listing."
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Indicates whether the listing has been approved by an admin."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "description",
+        "category",
+        "department",
+        "semester",
+        "price",
+        "imageUrl",
+        "isApproved"
+      ]
+    },
+    "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "type": "object",
+      "description": "Represents a message exchanged between users in the chat feature.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the chat message."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to the User who sent the message. (Relationship: User 1:N ChatMessage (Sender))"
+        },
+        "receiverId": {
+          "type": "string",
+          "description": "Reference to the User who received the message. (Relationship: User 1:N ChatMessage (Receiver))"
+        },
+        "message": {
+          "type": "string",
+          "description": "Content of the message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp indicating when the message was sent.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "senderId",
+        "receiverId",
+        "message",
+        "timestamp"
+      ]
+    },
+    "Wishlist": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Wishlist",
+      "type": "object",
+      "description": "Represents a user's wishlist, containing references to saved listings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the wishlist."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who owns the wishlist. (Relationship: User 1:N Wishlist)"
+        },
+        "listingIds": {
+          "type": "array",
+          "description": "References to Listings saved in the wishlist. (Relationship: Listing N:N Wishlist)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "listingIds"
+      ]
+    },
+    "Recommendation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Recommendation",
+      "type": "object",
+      "description": "Represents a personalized resource recommendation for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the recommendation."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User for whom the recommendation is generated. (Relationship: User 1:N Recommendation)"
+        },
+        "listingId": {
+          "type": "string",
+          "description": "Reference to the Listing being recommended. (Relationship: Listing 1:N Recommendation)"
+        },
+        "score": {
+          "type": "number",
+          "description": "Relevance score of the recommendation."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "listingId",
+        "score"
+      ]
+    },
+    "Report": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Report",
+      "type": "object",
+      "description": "Represents a report of inappropriate content, generated for admin review.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the report."
+        },
+        "reporterId": {
+          "type": "string",
+          "description": "Reference to the User who created the report. (Relationship: User 1:N Report (Reporter))"
+        },
+        "reportedUserId": {
+          "type": "string",
+          "description": "Reference to the User being reported. (Relationship: User 1:N Report (Reported User))"
+        },
+        "reportedListingId": {
+          "type": "string",
+          "description": "Reference to the Listing being reported. (Relationship: Listing 1:N Report)"
+        },
+        "reportSummary": {
+          "type": "string",
+          "description": "Summary of the reported content, generated by the LLM."
+        },
+        "isResolved": {
+          "type": "boolean",
+          "description": "Indicates if the report has been reviewed and resolved by an admin."
+        }
+      },
+      "required": [
+        "id",
+        "reporterId",
+        "reportSummary",
+        "isResolved"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. User ID is used as the document ID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/listings/{listingId}",
+        "definition": {
+          "entityName": "Listing",
+          "schema": {
+            "$ref": "#/backend/entities/Listing"
+          },
+          "description": "Stores academic resource listings. Includes denormalized 'userId' for authorization independence.",
+          "params": [
+            {
+              "name": "listingId",
+              "description": "The unique identifier for the listing."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/chat_messages/{chatMessageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": {
+            "$ref": "#/backend/entities/ChatMessage"
+          },
+          "description": "Stores chat messages exchanged between users.",
+          "params": [
+            {
+              "name": "chatMessageId",
+              "description": "The unique identifier for the chat message."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/wishlists/{wishlistId}",
+        "definition": {
+          "entityName": "Wishlist",
+          "schema": {
+            "$ref": "#/backend/entities/Wishlist"
+          },
+          "description": "Stores user wishlists.  Path based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "wishlistId",
+              "description": "The unique identifier for the wishlist."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/recommendations/{recommendationId}",
+        "definition": {
+          "entityName": "Recommendation",
+          "schema": {
+            "$ref": "#/backend/entities/Recommendation"
+          },
+          "description": "Stores personalized resource recommendations for users.",
+          "params": [
+            {
+              "name": "recommendationId",
+              "description": "The unique identifier for the recommendation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "entityName": "Report",
+          "schema": {
+            "$ref": "#/backend/entities/Report"
+          },
+          "description": "Stores reports of inappropriate content for admin review.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The unique identifier for the report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Documents in this collection denote admin status based on their existence. Existence over content.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the admin user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily maintainable data model for the Re-Source application, adhering to the principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters).  \n\nAuthorization Independence is achieved through denormalization. Specifically, for Listings, the `userId` is stored directly within each listing document, which is essential for ownership-based access control without requiring `get()` calls in security rules. For collaborative data (which doesn't exist in the current model, but anticipating future expansion) we would typically denormalize membership maps.\n\nStructural Segregation is used by placing different data types into separate collections (e.g., `users`, `listings`, `chat_messages`), ensuring that each collection has a homogeneous security posture.  Path-Based ownership (`/users/{userId}/wishlists/{wishlistId}`) is utilized for entities representing a User 1:N Entity relationship, making security rules simple and efficient.  This applies to wishlists.\n\nAccess Modeling is standardized: Private data related to users is stored under their respective user ID, while shared data (currently none, but would apply to collaborative listings) could use membership maps if needed.  Global roles are managed by existence in dedicated collections (e.g., `/roles_admin/{uid}`).\n\nQAPs (Rules are not Filters) are supported via structural segregation.  Secure list operations are enabled by ensuring that security rules can efficiently determine access based on the document path and the current user's authentication state, without needing to filter data based on document content.\n\nFor invariants: Ownership is enforced via path-based structures, which provides secure association between entities, such as users and their listings."
+  }
+}
