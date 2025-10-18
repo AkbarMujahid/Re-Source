@@ -4,7 +4,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -56,7 +55,6 @@ export default function SellPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !firestore) {
-      // This should not happen due to the useEffect redirect, but it's a good safeguard.
       toast({ variant: 'destructive', title: 'Authentication error. Please log in again.' });
       return;
     }
@@ -68,15 +66,13 @@ export default function SellPage() {
     setIsLoading(true);
 
     try {
-      // 1. Upload image to Firebase Storage
       const storage = getStorage();
       const imageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${imageFile.name}`);
       const uploadResult = await uploadBytes(imageRef, imageFile);
       const imageUrl = await getDownloadURL(uploadResult.ref);
 
-      // 2. Add listing to Firestore
       const listingsCollection = collection(firestore, 'listings');
-      addDocumentNonBlocking(listingsCollection, {
+      await addDocumentNonBlocking(listingsCollection, {
         title,
         description,
         category,
@@ -88,7 +84,7 @@ export default function SellPage() {
         sellerName: user.displayName,
         sellerAvatarUrl: user.photoURL,
         createdAt: serverTimestamp(),
-        isApproved: true, // Assuming auto-approval for now
+        isApproved: true, 
       });
 
       toast({ 
@@ -110,11 +106,11 @@ export default function SellPage() {
   };
   
   if (isUserLoading || !user) {
-      return null; // or a loading spinner
+      return null;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl animate-fade-in-up">
       <Card className="w-full shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Sell Your Resource</CardTitle>
@@ -125,12 +121,12 @@ export default function SellPage() {
         <CardContent>
           <form className="grid gap-6" onSubmit={handleSubmit}>
             <div className="grid gap-2">
-              <Label htmlFor="title" className="font-bold text-lg">Item Title</Label>
+              <Label htmlFor="title" className="font-bold">Item Title</Label>
               <Input id="title" placeholder="e.g., Advanced Calculus Textbook, 2nd Edition" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isLoading} />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="description" className="font-bold text-lg">Description</Label>
+              <Label htmlFor="description" className="font-bold">Description</Label>
               <Textarea
                 id="description"
                 placeholder="Describe the item's condition, edition, and any other relevant details."
@@ -140,7 +136,7 @@ export default function SellPage() {
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="grid gap-2">
                   <Label htmlFor="category" className="font-bold">Category</Label>
                    <Select onValueChange={setCategory} value={category} disabled={isLoading}>
@@ -174,7 +170,7 @@ export default function SellPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="grid gap-2">
                     <Label htmlFor="semester" className="font-bold">Semester</Label>
                      <Select onValueChange={setSemester} value={semester} disabled={isLoading}>
@@ -200,15 +196,15 @@ export default function SellPage() {
             </div>
 
              <div className="grid gap-2">
-              <Label htmlFor="photos" className="font-bold text-lg">Photos</Label>
+              <Label htmlFor="photos" className="font-bold">Photos</Label>
               <div className="flex items-center justify-center w-full">
-                <Label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <Label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/80 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                         <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                        {imageFile ? <p className="text-sm text-muted-foreground">{imageFile.name}</p> :
+                        {imageFile ? <p className="text-sm text-foreground">{imageFile.name}</p> :
                         <>
                           <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG, or any image format</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG, etc.</p>
                         </>
                         }
                     </div>
@@ -216,8 +212,8 @@ export default function SellPage() {
                 </Label>
                 </div> 
             </div>
-            <Button size="lg" type="submit" disabled={isLoading}>
-              {isLoading ? 'Listing Item...' : 'List Item'}
+            <Button size="lg" type="submit" disabled={isLoading} className="w-full text-lg">
+              {isLoading ? 'Listing Item...' : 'List Item for Sale'}
             </Button>
           </form>
         </CardContent>
