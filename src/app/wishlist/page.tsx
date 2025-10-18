@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, IndianRupee, BookOpen } from 'lucide-react';
+import { X, IndianRupee, BookOpen, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
 const wishlistItems = [
@@ -17,6 +17,7 @@ const wishlistItems = [
     title: 'Organic Chemistry Model Kit',
     category: 'Study Aids',
     department: 'Chemistry',
+    semester: '2',
     price: 2000,
     imageUrl: 'https://picsum.photos/seed/2/600/400',
     imageHint: 'chemistry kit',
@@ -26,6 +27,7 @@ const wishlistItems = [
     title: 'Digital Logic Design Board',
     category: 'Equipment',
     department: 'Electronics',
+    semester: '3',
     price: 6000,
     imageUrl: 'https://picsum.photos/seed/5/600/400',
     imageHint: 'circuit board',
@@ -64,7 +66,10 @@ export default function WishlistPage() {
                 </Button>
               </CardHeader>
               <CardContent className="pt-4 flex-grow">
-                <Badge variant="secondary" className="mb-2">{resource.department}</Badge>
+                 <div className="flex gap-2 mb-2">
+                    <Badge variant="secondary">{resource.department}</Badge>
+                    <Badge variant="outline">Sem {resource.semester}</Badge>
+                  </div>
                 <Link href={`/listings/${resource.id}`}>
                   <CardTitle className="text-lg font-bold leading-tight group-hover:text-primary transition-colors duration-300">
                     {resource.title}

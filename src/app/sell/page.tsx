@@ -71,6 +71,8 @@ export default function SellPage() {
                         <SelectItem value="chem">Chemistry</SelectItem>
                         <SelectItem value="psy">Psychology</SelectItem>
                         <SelectItem value="ece">Electronics</SelectItem>
+                        <SelectItem value="bio">Biology</SelectItem>
+                        <SelectItem value="lit">Literature</SelectItem>
                     </SelectContent>
                     </Select>
                 </div>
@@ -79,7 +81,21 @@ export default function SellPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                     <Label htmlFor="semester" className="font-bold">Semester</Label>
-                    <Input id="semester" type="number" placeholder="e.g., 3" />
+                     <Select>
+                        <SelectTrigger id="semester">
+                            <SelectValue placeholder="Select a semester" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="6">6</SelectItem>
+                            <SelectItem value="7">7</SelectItem>
+                            <SelectItem value="8">8</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                  <div className="grid gap-2">
                     <Label htmlFor="price" className="font-bold">Price (₹)</Label>

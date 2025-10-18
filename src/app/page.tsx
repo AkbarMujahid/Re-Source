@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
+import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
@@ -176,6 +176,23 @@ export default function HomePage() {
                   <DropdownMenuItem>Psychology</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full md:w-auto justify-between">
+                    Semester <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem>1</DropdownMenuItem>
+                  <DropdownMenuItem>2</DropdownMenuItem>
+                  <DropdownMenuItem>3</DropdownMenuItem>
+                  <DropdownMenuItem>4</DropdownMenuItem>
+                  <DropdownMenuItem>5</DropdownMenuItem>
+                  <DropdownMenuItem>6</DropdownMenuItem>
+                  <DropdownMenuItem>7</DropdownMenuItem>
+                  <DropdownMenuItem>8</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -211,7 +228,10 @@ export default function HomePage() {
                   </Button>
                 </CardHeader>
                 <CardContent className="pt-4 flex-grow">
-                  <Badge variant="secondary" className="mb-2">{resource.department}</Badge>
+                  <div className="flex gap-2 mb-2">
+                    <Badge variant="secondary">{resource.department}</Badge>
+                    <Badge variant="outline">Sem {resource.semester}</Badge>
+                  </div>
                   <Link href={`/listings/${resource.id}`}>
                     <CardTitle className="text-lg font-bold leading-tight group-hover:text-primary transition-colors duration-300">
                       {resource.title}
