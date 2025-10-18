@@ -69,11 +69,11 @@ export default function Header() {
           
           {user && (
              <>
-              <Link href="/wishlist" passHref>
-                <Button variant="ghost" size="icon" asChild>
-                    <a><Heart className="h-5 w-5" /><span className="sr-only">Wishlist</span></a>
-                </Button>
-              </Link>
+              <Button asChild variant="ghost" size="icon">
+                <Link href="/wishlist">
+                    <Heart className="h-5 w-5" /><span className="sr-only">Wishlist</span>
+                </Link>
+              </Button>
             </>
           )}
 
