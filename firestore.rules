@@ -2,188 +2,106 @@
  * @fileOverview Firestore Security Rules for the Re-Source application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for personal data and
- * leverages denormalization to optimize authorization checks.  Admin privileges
- * are granted based on the existence of a document in the `roles_admin` collection.
- * Public read access is not enabled for any collections by default.
+ * Enforces strict user-ownership for user-specific data while allowing public read access to listings.
+ * Admins are managed through the /roles_admin collection.
  *
  * Data Structure:
- * - `/users/{userId}`: Stores user profiles, accessible only to the user themselves.
- * - `/listings/{listingId}`: Stores resource listings.  Writes are restricted to the owner (based on the `userId` field).
- * - `/chat_messages/{chatMessageId}`: Stores chat messages.  No specific access controls are defined beyond authentication.
- * - `/users/{userId}/wishlists/{wishlistId}`: Stores user wishlists, accessible only to the user themselves.
- * - `/recommendations/{recommendationId}`: Stores resource recommendations.  No specific access controls are defined beyond authentication.
- * - `/reports/{reportId}`: Stores reports of inappropriate content. No specific access controls are defined beyond authentication.
- * - `/roles_admin/{userId}`: Presence in this collection grants admin privileges.
- *
- * Key Security Decisions:
- * - User listing is explicitly denied to protect user privacy.
- * - Data validation is relaxed during this prototyping phase, focusing on authorization.
- * - Admin privileges are determined by document existence in the `roles_admin` collection.
- *
- * Denormalization for Authorization:
- * - Listings include a `userId` field to enable ownership-based access control without additional reads.
+ * - /users/{userId}: User profiles.
+ * - /listings/{listingId}: Resource listings with userId field.
+ * - /chat_messages/{chatMessageId}: Chat messages.
+ * - /users/{userId}/wishlists/{wishlistId}: User wishlists.
+ * - /recommendations/{recommendationId}: Resource recommendations.
+ * - /reports/{reportId}: Reports of inappropriate content.
+ * - /roles_admin/{userId}: Document existence indicates admin status.
  */
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
+  match /databases/{database}/documents {
 
-    // Checks if the user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Checks if the user is the owner of the document
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Checks if the user is the existing owner of the document
     function isExistingOwner(userId) {
-      return isSignedIn() && resource != null && request.auth.uid == userId;
+      return isOwner(userId) && resource != null;
     }
-    
-    // Checks if the user is an admin (stored in roles_admin collection)
+
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
     }
 
-
-    /**
-     * @description Security rules for user profiles.
-     * @path /users/{userId}
-     * @allow (create) If the authenticated user's UID matches the userId.
-     * @deny (create) If the authenticated user's UID does not match the userId.
-     * @allow (get, list, update, delete) If the authenticated user's UID matches the userId.
-     * @deny (get, list, update, delete) If the authenticated user's UID does not match the userId.
-     * @principle Enforces document ownership for all operations.
-     */
+    // -------------------- USERS --------------------
     match /users/{userId} {
+      // Users can read their own document; admins can read any user document
+      allow get: if isOwner(userId) || isAdmin();
+      
+      // Only admins can list all users
+      allow list: if isAdmin();
 
-      // Read rules
-      allow get: if isOwner(userId) || isAdmin(); // Users can get their own doc, admins can get any
-      allow list: if isAdmin();                  // Only admins can list all users
-
-      // Write rules
+      // Users can create their own document
       allow create: if isOwner(userId) && request.resource.data.id == userId;
+
+      // Users can update their own document; enforce immutable user ID
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId); // Users can delete their own document
+
+      // Users can delete their own document
+      allow delete: if isExistingOwner(userId);
     }
 
-    // Optional: roles_admin collection can only be managed by existing admins
-    match /roles_admin/{adminId} {
-      allow read: if isAdmin();   // Only admins can read roles
-      allow write: if isAdmin();  // Only admins can assign/remove admin roles
-    }
-
-
-    /**
-     * @description Security rules for resource listings.
-     * @path /listings/{listingId}
-     * @allow (get, list) Public read access.
-     * @allow (create) If the authenticated user's UID matches the listing's userId.
-     * @deny (create) If the authenticated user's UID does not match the listing's userId.
-     * @allow (update, delete) If the authenticated user's UID matches the listing's userId.
-     * @deny (update, delete) If the authenticated user's UID does not match the listing's userId or if the listing doesn't exist.
-     * @principle Enforces document ownership for writes.
-     */
+    // -------------------- LISTINGS --------------------
     match /listings/{listingId} {
-      // Read rules:
-      allow get: if true;
-      allow list: if true;
-
-      // Write rules:
+      allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId);
+      allow delete: if isExistingOwner(resource.data.userId);
     }
 
-    /**
-     * @description Security rules for chat messages.
-     * @path /chat_messages/{chatMessageId}
-     * @allow (get, list, create) If the user is signed in.
-     * @deny (get, list, create) If the user is not signed in.
-     * @allow (update, delete) Never allow general updates or deletes.
-     * @principle Requires authentication for reads and writes.
-     */
+    // -------------------- CHAT MESSAGES --------------------
     match /chat_messages/{chatMessageId} {
-      // Read rules:
       allow get: if isSignedIn();
-      allow list: if isSignedIn();
-
-      // Write rules:
+      allow list: if false;
       allow create: if isSignedIn();
       allow update: if false;
       allow delete: if false;
     }
 
-    /**
-     * @description Security rules for user wishlists.
-     * @path /users/{userId}/wishlists/{wishlistId}
-     * @allow (create, get, list, update, delete) If the authenticated user's UID matches the userId.
-     * @deny (create, get, list, update, delete) If the authenticated user's UID does not match the userId.
-     * @principle Enforces document ownership for all operations.
-     */
+    // -------------------- WISHLISTS --------------------
     match /users/{userId}/wishlists/{wishlistId} {
-      // Read rules:
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      // Write rules:
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Security rules for resource recommendations.
-     * @path /recommendations/{recommendationId}
-     * @allow (get, list, create) If the user is signed in or if the user is an admin
-     * @deny (get, list, create) If the user is not signed in.
-     * @allow (update, delete) Only admins can update or delete recommendations
-     * @principle Requires authentication for reads and writes.
-     */
+    // -------------------- RECOMMENDATIONS --------------------
     match /recommendations/{recommendationId} {
-      // Read rules:
-      allow get: if isSignedIn() || isAdmin();
-      allow list: if isSignedIn() || isAdmin();
-
-      // Write rules:
-      allow create: if isSignedIn() || isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
     }
 
-    /**
-     * @description Security rules for reports of inappropriate content.
-     * @path /reports/{reportId}
-     * @allow (get, list, create) If the user is signed in.
-     * @deny (get, list, create) If the user is not signed in.
-     * @allow (update, delete) Only admins can update or delete reports.
-     * @principle Requires authentication for reads and writes.
-     */
+    // -------------------- REPORTS --------------------
     match /reports/{reportId} {
-      // Read rules:
-      allow get: if isSignedIn() || isAdmin();
-      allow list: if isSignedIn() || isAdmin();
-
-      // Write rules:
       allow create: if isSignedIn();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
     }
 
-     /**
-      * @description Security rules for admin status, based on document existence.
-      * @path /roles_admin/{userId}
-      */
+    // -------------------- ROLES_ADMIN --------------------
     match /roles_admin/{userId} {
-        allow get: if isAdmin();
-        allow list: if false; // Prevent listing of all admins
-
-        allow create: if isAdmin();
-        allow update: if false; // Prevent updates for admin role assignment
-        allow delete: if isAdmin();
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create: if isAdmin();
+      allow update: if false;
+      allow delete: if isAdmin() && resource != null;
     }
   }
 }
