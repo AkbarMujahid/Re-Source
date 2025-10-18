@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatMessage, Conversation, UserProfile } from '@/lib/types';
+import { format } from 'date-fns';
 
 interface ConversationHeader {
     otherUserName: string;
@@ -42,7 +43,18 @@ export default function ConversationPage({ params }: { params: { conversationId:
     }, [messages]);
 
     useEffect(() => {
-        if (conversation && firestore && user) {
+        if (isConversationLoading || isUserLoading) return;
+        
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        if (conversation && firestore) {
+            if (!conversation.participants.includes(user.uid)) {
+                 router.replace('/chat');
+                 return;
+            }
             const otherUserId = conversation.participants.find(p => p !== user.uid);
             if (otherUserId) {
                 const userDocRef = doc(firestore, 'users', otherUserId);
@@ -57,15 +69,10 @@ export default function ConversationPage({ params }: { params: { conversationId:
                 });
             }
         }
-    }, [conversation, firestore, user]);
+    }, [conversation, firestore, user, isUserLoading, isConversationLoading, router]);
 
-    if (!isUserLoading && user && !isConversationLoading && conversation && !conversation.participants.includes(user.uid)) {
-        // User is not part of this conversation
-        router.replace('/chat');
-        return null;
-    }
-    
-    const handleSendMessage = async () => {
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
         if (!firestore || !user || !conversationRef || newMessage.trim() === '') return;
 
         const messagesCollection = collection(conversationRef, 'messages');
@@ -76,9 +83,11 @@ export default function ConversationPage({ params }: { params: { conversationId:
         };
 
         try {
-            await addDoc(messagesCollection, messageData);
+            // Non-blocking add
+            addDoc(messagesCollection, messageData);
             
-            await updateDoc(conversationRef, {
+            // Non-blocking update
+            updateDoc(conversationRef, {
                 lastMessage: newMessage,
                 lastMessageTimestamp: serverTimestamp(),
             });
@@ -86,14 +95,14 @@ export default function ConversationPage({ params }: { params: { conversationId:
             setNewMessage('');
         } catch (error) {
             console.error("Error sending message:", error);
-            // Optionally show a toast notification
+            // Optionally show a toast notification for feedback
         }
     };
     
     const isLoading = isUserLoading || isConversationLoading || areMessagesLoading || !headerData;
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col bg-background">
             <header className="sticky top-16 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
                 <div className="container mx-auto px-4 h-16 flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => router.push('/chat')}>
@@ -134,13 +143,16 @@ export default function ConversationPage({ params }: { params: { conversationId:
                         >
                             <div
                                 className={cn(
-                                    'max-w-md rounded-lg px-4 py-2',
+                                    'max-w-md rounded-lg px-4 py-2 flex flex-col',
                                     message.senderId === user?.uid
                                         ? 'bg-primary text-primary-foreground'
                                         : 'bg-muted'
                                 )}
                             >
-                                <p>{message.text}</p>
+                                <p className="text-sm">{message.text}</p>
+                                <p className={cn('text-xs mt-1 self-end', message.senderId === user?.uid ? 'text-primary-foreground/70' : 'text-muted-foreground/70' )}>
+                                    {message.timestamp ? format(new Date(message.timestamp.seconds * 1000), 'p') : ''}
+                                </p>
                             </div>
                         </div>
                     ))
@@ -150,7 +162,7 @@ export default function ConversationPage({ params }: { params: { conversationId:
 
             <footer className="sticky bottom-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4">
                 <div className="container mx-auto max-w-4xl">
-                     <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }} className="flex items-center gap-2">
+                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                         <Input
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}

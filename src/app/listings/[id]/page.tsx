@@ -15,7 +15,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { useDoc, useUser, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -45,7 +45,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   }, [wishlist, params.id]);
   
   const handleWishlistToggle = async () => {
-    if (!user || !wishlistRef) {
+    if (!user || !wishlistRef || !firestore) {
       toast({ variant: 'destructive', title: 'Please login to use wishlists.' });
       router.push('/login');
       return;
@@ -54,7 +54,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
     // Ensure the wishlist document exists before trying to update it
     const wishlistSnap = await getDoc(wishlistRef);
     if (!wishlistSnap.exists()) {
-        await setDocumentNonBlocking(wishlistRef, { userId: user.uid, listingIds: [] });
+        await setDoc(wishlistRef, { userId: user.uid, listingIds: [] });
     }
   
     if (isInWishlist) {

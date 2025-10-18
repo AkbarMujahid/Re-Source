@@ -20,6 +20,7 @@ export default function ChatPage() {
     const { user, firestore, isUserLoading } = useUser();
     const router = useRouter();
     const [populatedConversations, setPopulatedConversations] = useState<PopulatedConversation[]>([]);
+    const [areDetailsLoading, setAreDetailsLoading] = useState(true);
 
     const conversationsQuery = useMemo(() => {
         if (!user || !firestore) return null;
@@ -33,7 +34,18 @@ export default function ChatPage() {
     const { data: conversations, isLoading: areConversationsLoading } = useCollection<Conversation>(conversationsQuery);
 
     useEffect(() => {
-        if (conversations && firestore && user) {
+        if (areConversationsLoading || isUserLoading) {
+            setAreDetailsLoading(true);
+            return;
+        }
+
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        if (conversations && firestore) {
+            setAreDetailsLoading(true);
             const fetchParticipantDetails = async () => {
                 const convosWithDetails = await Promise.all(
                     conversations.map(async (convo) => {
@@ -55,17 +67,21 @@ export default function ChatPage() {
                     })
                 );
                 setPopulatedConversations(convosWithDetails);
+                setAreDetailsLoading(false);
             };
             fetchParticipantDetails();
+        } else {
+            setPopulatedConversations([]);
+            setAreDetailsLoading(false);
         }
-    }, [conversations, firestore, user]);
+    }, [conversations, firestore, user, isUserLoading, areConversationsLoading, router]);
 
-    if (isUserLoading || areConversationsLoading) {
+    if (isUserLoading || areConversationsLoading || areDetailsLoading) {
         return <ChatSkeleton />;
     }
 
     if (!user) {
-        router.push('/login');
+        // This case is handled by the useEffect, but as a fallback
         return <ChatSkeleton />;
     }
 
@@ -91,7 +107,7 @@ export default function ChatPage() {
                                             <h2 className="font-bold truncate">{convo.otherUserName}</h2>
                                             {convo.lastMessageTimestamp && (
                                                 <p className="text-xs text-muted-foreground flex-shrink-0 ml-4">
-                                                    {formatDistanceToNow(convo.lastMessageTimestamp.toDate(), { addSuffix: true })}
+                                                    {formatDistanceToNow(new Date(convo.lastMessageTimestamp?.seconds * 1000), { addSuffix: true })}
                                                 </p>
                                             )}
                                         </div>
