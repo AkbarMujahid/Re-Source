@@ -1,3 +1,4 @@
+'use client';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,102 +15,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee, Calendar } from 'lucide-react';
+import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { useCollection, useFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { useMemo } from 'react';
 
-const resources = [
-  {
-    id: '1',
-    title: 'Advanced Calculus Textbook',
-    category: 'Textbooks',
-    department: 'Mathematics',
-    semester: '3',
-    price: 3500,
-    imageUrl: 'https://picsum.photos/seed/1/600/400',
-    imageHint: 'calculus textbook',
-    seller: 'Jane Doe',
-    isNew: true,
-  },
-  {
-    id: '2',
-    title: 'Organic Chemistry Model Kit',
-    category: 'Study Aids',
-    department: 'Chemistry',
-    semester: '2',
-    price: 2000,
-    imageUrl: 'https://picsum.photos/seed/2/600/400',
-    imageHint: 'chemistry kit',
-    seller: 'John Smith',
-  },
-  {
-    id: '3',
-    title: 'Data Structures & Algorithms Notes',
-    category: 'Notes',
-    department: 'Computer Science',
-    semester: '4',
-    price: 1200,
-    imageUrl: 'https://picsum.photos/seed/3/600/400',
-    imageHint: 'programming notes',
-    seller: 'Emily White',
-  },
-  {
-    id: '4',
-    title: 'Introduction to Psychology',
-    category: 'Textbooks',
-    department: 'Psychology',
-    semester: '1',
-    price: 2400,
-    imageUrl: 'https://picsum.photos/seed/4/600/400',
-    imageHint: 'psychology book',
-    seller: 'Michael Brown',
-  },
-  {
-    id: '5',
-    title: 'Digital Logic Design Board',
-    category: 'Equipment',
-    department: 'Electronics',
-    semester: '3',
-    price: 6000,
-    imageUrl: 'https://picsum.photos/seed/5/600/400',
-    imageHint: 'circuit board',
-    seller: 'Sarah Green',
-    isNew: true,
-  },
-  {
-    id: '6',
-    title: 'Literary Theory Anthology',
-    category: 'Textbooks',
-    department: 'Literature',
-    semester: '5',
-    price: 1600,
-    imageUrl: 'https://picsum.photos/seed/6/600/400',
-    imageHint: 'literature book',
-    seller: 'David Black',
-  },
-   {
-    id: '7',
-    title: 'Microbiology Lab Coat',
-    category: 'Equipment',
-    department: 'Biology',
-    semester: '2',
-    price: 1440,
-    imageUrl: 'https://picsum.photos/seed/7/600/400',
-    imageHint: 'lab coat',
-    seller: 'Laura Blue',
-  },
-  {
-    id: '8',
-    title: 'Advanced Python Programming Guide',
-    category: 'Notes',
-    department: 'Computer Science',
-    semester: '6',
-    price: 1760,
-    imageUrl: 'https://picsum.photos/seed/8/600/400',
-    imageHint: 'python code',
-    seller: 'Chris Red',
-  },
-];
 
 const categoryIcons = {
   Textbooks: <BookOpen className="w-5 h-5" />,
@@ -120,6 +32,10 @@ const categoryIcons = {
 };
 
 export default function HomePage() {
+  const { firestore } = useFirebase();
+  const listingsCollection = useMemo(() => collection(firestore, 'listings'), [firestore]);
+  const { data: resources, isLoading } = useCollection(listingsCollection);
+  
   return (
     <div className="w-full">
       {/* Hero Section */}
@@ -202,8 +118,24 @@ export default function HomePage() {
       <section className="py-12 md:py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-10 font-headline">Recently Listed Resources</h2>
+          {isLoading && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="overflow-hidden flex flex-col">
+                  <CardHeader className="p-0 relative h-48 bg-muted animate-pulse" />
+                  <CardContent className="pt-4 flex-grow">
+                    <div className="h-4 bg-muted animate-pulse rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-muted animate-pulse rounded w-1/2"></div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between items-center">
+                    <div className="h-6 bg-muted animate-pulse rounded w-1/4"></div>
+                    <div className="h-6 bg-muted animate-pulse rounded w-1/4"></div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          }
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {resources.map((resource) => (
+            {resources?.map((resource) => (
               <Card key={resource.id} className="overflow-hidden flex flex-col group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
                 <CardHeader className="p-0 relative">
                   <Link href={`/listings/${resource.id}`}>
@@ -216,9 +148,6 @@ export default function HomePage() {
                       data-ai-hint={resource.imageHint}
                     />
                   </Link>
-                  {resource.isNew && (
-                    <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground">NEW</Badge>
-                  )}
                   <Button
                     variant="ghost"
                     size="icon"

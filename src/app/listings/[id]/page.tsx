@@ -1,10 +1,11 @@
+'use client';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb } from 'lucide-react';
+import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import {
   Carousel,
@@ -13,33 +14,81 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-
-
-const resource = {
-  id: '1',
-  title: 'Advanced Calculus Textbook',
-  description: "A barely used textbook for MATH-301. Contains all pages, no markings or highlights. Perfect for students looking to save money. This edition is the latest one required by the department. Includes access to online resources, code is unscratched.",
-  category: 'Textbooks',
-  department: 'Mathematics',
-  semester: '3',
-  price: 3500,
-  imageUrl: 'https://picsum.photos/seed/1/1200/800',
-  imageHint: 'calculus textbook',
-  seller: {
-    name: 'Jane Doe',
-    avatarUrl: 'https://picsum.photos/seed/avatar1/100/100',
-    memberSince: '2023-08-15',
-  },
-};
-
-const recommendedResources = [
-    { id: '2', title: 'Calculus II Notes', price: 800, imageUrl: 'https://picsum.photos/seed/rec1/600/400', imageHint: 'math notes'},
-    { id: '3', title: 'Linear Algebra Textbook', price: 4000, imageUrl: 'https://picsum.photos/seed/rec2/600/400', imageHint: 'algebra book'},
-    { id: '4', title: 'Differential Equations Practice Problems', price: 1600, imageUrl: 'https://picsum.photos/seed/rec3/600/400', imageHint: 'equations sheet'},
-    { id: '5', title: 'Statistics for Engineers', price: 2800, imageUrl: 'https://picsum.photos/seed/rec4/600/400', imageHint: 'statistics chart'},
-];
+import { useDoc, useFirebase, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { doc, collection, query, where, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const resourceRef = useMemo(() => doc(firestore, 'listings', params.id), [firestore, params.id]);
+  const { data: resource, isLoading: isResourceLoading } = useDoc(resourceRef);
+
+  const recommendationsQuery = useMemo(() => {
+    if (!resource) return null;
+    return query(collection(firestore, 'listings'), where('department', '==', resource.department), where('id', '!=', resource.id));
+  }, [firestore, resource]);
+  const { data: recommendedResources, isLoading: areRecsLoading } = useCollection(recommendationsQuery);
+  
+  const wishlistRef = useMemo(() => user ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
+  const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
+
+  const isInWishlist = useMemo(() => {
+    return wishlist?.listingIds?.includes(params.id);
+  }, [wishlist, params.id]);
+
+  const handleWishlistToggle = async () => {
+    if (!user || !wishlistRef) {
+      toast({ variant: 'destructive', title: 'Please login to use wishlists.' });
+      router.push('/login');
+      return;
+    }
+
+    try {
+      if (isInWishlist) {
+        // Remove from wishlist
+        await updateDocumentNonBlocking(wishlistRef, {
+          listingIds: arrayRemove(params.id)
+        });
+        toast({ title: 'Removed from wishlist.' });
+      } else {
+        // Add to wishlist
+        await updateDocumentNonBlocking(wishlistRef, {
+          userId: user.uid,
+          listingIds: arrayUnion(params.id),
+          createdAt: serverTimestamp(),
+        }, { merge: true });
+        toast({ title: 'Added to wishlist!' });
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error updating wishlist.', description: error.message });
+    }
+  };
+  
+  if (isResourceLoading) {
+    return <ListingDetailSkeleton />;
+  }
+
+  if (!resource) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
+        <h1 className="mt-4 text-2xl font-bold">Listing not found</h1>
+        <p className="mt-2 text-muted-foreground">This listing may have been removed or the link is incorrect.</p>
+        <Button asChild className="mt-6">
+          <Link href="/">Go to Homepage</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
@@ -72,9 +121,9 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                 <MessageCircle className="mr-2 h-5 w-5" />
                 Contact Seller
               </Button>
-              <Button variant="outline" size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300">
-                <Heart className="mr-2 h-5 w-5" />
-                Wishlist
+              <Button variant={isInWishlist ? "secondary" : "outline"} size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300" onClick={handleWishlistToggle} disabled={isWishlistLoading}>
+                <Heart className={`mr-2 h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
+                {isInWishlist ? 'In Wishlist' : 'Wishlist'}
               </Button>
             </div>
 
@@ -84,12 +133,11 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
             <Card className="bg-background">
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={resource.seller.avatarUrl} alt={resource.seller.name} />
-                  <AvatarFallback>{resource.seller.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={resource.sellerAvatarUrl} alt={resource.sellerName} />
+                  <AvatarFallback>{resource.sellerName?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-lg">Sold by {resource.seller.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">Member since {new Date(resource.seller.memberSince).toLocaleDateString()}</p>
+                  <CardTitle className="text-lg">Sold by {resource.sellerName}</CardTitle>
                 </div>
               </CardHeader>
             </Card>
@@ -131,56 +179,106 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       </div>
 
        {/* AI Recommendations */}
-      <div className="mt-16 pt-12 border-t">
-          <div className="flex items-center gap-3 mb-8">
-              <Lightbulb className="w-8 h-8 text-accent"/>
-              <h2 className="text-3xl font-bold font-headline">You Might Also Like</h2>
-          </div>
-        <Carousel
-          opts={{
-            align: "start",
-          }}
-          className="w-full"
-        >
-          <CarouselContent>
-            {recommendedResources.map((item) => (
-              <CarouselItem key={item.id} className="md:basis-1/2 lg:basis-1/4">
-                <div className="p-1">
-                  <Card className="overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                     <CardHeader className="p-0 relative">
-                        <Link href={`/listings/${item.id}`}>
-                          <Image
-                            src={item.imageUrl}
-                            alt={item.title}
-                            width={600}
-                            height={400}
-                            className="object-cover w-full h-40"
-                            data-ai-hint={item.imageHint}
-                          />
-                        </Link>
-                     </CardHeader>
-                      <CardContent className="p-4">
-                        <Link href={`/listings/${item.id}`}>
-                          <p className="text-md font-bold leading-tight group-hover:text-primary transition-colors truncate">{item.title}</p>
-                        </Link>
-                        <div className="flex justify-between items-center mt-2">
-                            <div className="flex items-center text-lg font-bold text-primary">
-                                <IndianRupee className="w-4 h-4 mr-1" />
-                                {item.price.toFixed(2)}
+       {recommendedResources && recommendedResources.length > 0 && (
+          <div className="mt-16 pt-12 border-t">
+              <div className="flex items-center gap-3 mb-8">
+                  <Lightbulb className="w-8 h-8 text-accent"/>
+                  <h2 className="text-3xl font-bold font-headline">You Might Also Like</h2>
+              </div>
+            <Carousel
+              opts={{
+                align: "start",
+              }}
+              className="w-full"
+            >
+              <CarouselContent>
+                {recommendedResources.map((item) => (
+                  <CarouselItem key={item.id} className="md:basis-1/2 lg:basis-1/4">
+                    <div className="p-1">
+                      <Card className="overflow-hidden group transform transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                         <CardHeader className="p-0 relative">
+                            <Link href={`/listings/${item.id}`}>
+                              <Image
+                                src={item.imageUrl}
+                                alt={item.title}
+                                width={600}
+                                height={400}
+                                className="object-cover w-full h-40"
+                                data-ai-hint={item.imageHint}
+                              />
+                            </Link>
+                         </CardHeader>
+                          <CardContent className="p-4">
+                            <Link href={`/listings/${item.id}`}>
+                              <p className="text-md font-bold leading-tight group-hover:text-primary transition-colors truncate">{item.title}</p>
+                            </Link>
+                            <div className="flex justify-between items-center mt-2">
+                                <div className="flex items-center text-lg font-bold text-primary">
+                                    <IndianRupee className="w-4 h-4 mr-1" />
+                                    {item.price.toFixed(2)}
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 rounded-full">
+                                    <Heart className="w-5 h-5" />
+                                </Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 rounded-full">
-                                <Heart className="w-5 h-5" />
-                            </Button>
-                        </div>
-                    </CardContent>
-                  </Card>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="hidden sm:flex" />
+              <CarouselNext className="hidden sm:flex" />
+            </Carousel>
+          </div>
+        )}
+    </div>
+  );
+}
+
+function ListingDetailSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+        <div className="md:col-span-2">
+          <Skeleton className="w-full h-[400px] md:h-[600px] rounded-lg" />
+        </div>
+        <div className="md:col-span-1">
+          <div className="sticky top-24">
+            <Skeleton className="h-10 w-3/4 mb-2" />
+            <Skeleton className="h-8 w-1/2 mb-4" />
+            <div className="flex items-center gap-4 mb-6">
+              <Skeleton className="h-12 flex-1" />
+              <Skeleton className="h-12 w-24" />
+            </div>
+            <Separator className="my-6" />
+            <Card className="bg-background">
+              <CardHeader className="flex flex-row items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="w-full">
+                  <Skeleton className="h-5 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-1/2" />
                 </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="hidden sm:flex" />
-          <CarouselNext className="hidden sm:flex" />
-        </Carousel>
+              </CardHeader>
+            </Card>
+          </div>
+        </div>
+      </div>
+      <div className="mt-12">
+        <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+          <div className="md:col-span-2">
+            <Skeleton className="h-8 w-1/4 mb-4" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+          <div>
+            <Skeleton className="h-8 w-1/3 mb-4" />
+            <div className="space-y-3">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

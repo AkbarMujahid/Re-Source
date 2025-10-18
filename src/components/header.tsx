@@ -18,9 +18,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Menu, Search, Heart, MessageCircle, PlusCircle, LayoutDashboard, User, LogOut, Settings } from 'lucide-react';
 import { Logo } from './logo';
-
-// Mock user state
-const isAuthenticated = false;
+import { useFirebase, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -29,6 +29,20 @@ const navLinks = [
 ];
 
 export default function Header() {
+  const { user } = useUser();
+  const { auth } = useFirebase();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -58,7 +72,7 @@ export default function Header() {
             </Button>
           </Link>
 
-          {isAuthenticated ? (
+          {user ? (
             <>
               <Link href="/sell">
                 <Button className="hidden sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/90">
@@ -70,17 +84,17 @@ export default function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="@shadcn" />
-                      <AvatarFallback>SC</AvatarFallback>
+                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User'} />
+                      <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">Student Name</p>
+                      <p className="text-sm font-medium leading-none">{user.displayName || 'User'}</p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        student@sce.edu.in
+                        {user.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -102,7 +116,7 @@ export default function Header() {
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
                   </DropdownMenuItem>
@@ -140,7 +154,7 @@ export default function Header() {
                     </Link>
                   ))}
                   <hr/>
-                   {!isAuthenticated && (
+                   {!user && (
                      <div className="flex flex-col gap-2">
                        <Link href="/login">
                          <Button variant="outline" className="w-full">Login</Button>
