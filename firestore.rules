@@ -1,164 +1,230 @@
 /**
- * @fileoverview Firestore Security Rules for Re-Source application.
+ * @fileoverview Firestore Security Rules for Re-Source Application
  *
  * Core Philosophy:
- * This ruleset prioritizes a secure, owner-centric access control model with explicit ownership checks for data modification.
- * Read access is more permissive where appropriate, but write access is strictly controlled.
+ * This ruleset prioritizes a strict, user-centric security model. Users primarily have access only to their own data,
+ * with exceptions for public listings and admin-controlled reports. Authorization relies heavily on the authenticated
+ * user's ID (`request.auth.uid`). Data validation is minimized to allow for rapid prototyping and flexible data shapes.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles, with the document ID matching the user ID.
- * - /listings/{listingId}: Stores academic resource listings, with a denormalized userId for ownership.
- * - /chat_messages/{chatMessageId}: Stores chat messages between users.
- * - /users/{userId}/wishlists/{wishlistId}: Stores user wishlists, nested under the user's document.
- * - /reports/{reportId}: Stores user-submitted reports for listings.
+ * - `/users/{userId}`: Stores user profiles. The `userId` parameter must match the authenticated user's UID for most operations.
+ * - `/listings/{listingId}`: Stores resource listings.  `userId` is denormalized onto each listing to track ownership.
+ * - `/chat_messages/{chatMessageId}`: Stores chat messages between users.
+ * - `/users/{userId}/wishlists/{wishlistId}`: Stores user wishlists. Access is restricted to the owning user.
+ * - `/reports/{reportId}`: Stores reports submitted by users. Access is generally open for reads, restricted for writes.
  *
  * Key Security Decisions:
- * - User listing is explicitly denied to protect user privacy.
- * - Ownership checks are enforced for all write operations to prevent unauthorized data modification.
- * - Data consistency between paths and document data is enforced on create and update operations to maintain relational integrity.
+ * - User listing is disallowed.
+ * - Ownership is enforced using the `userId` field and the `isOwner()` helper function.
+ * - Data validation is limited to essential checks for authorization and relational integrity.
+ * - Public read access is granted for listings, but writes are restricted to the owner.
  *
  * Denormalization for Authorization:
- * - The `Listing` entity includes the `userId` field to allow for direct ownership checks without needing to perform additional `get()` operations.
+ * The `Listing` entity denormalizes the `userId` to avoid needing to perform extra reads to determine ownership.
+ *
+ * Structural Segregation:
+ * Public listings are stored in a top-level collection (`/listings`) while private user data (wishlists) are stored in user subcollections (`/users/{userId}/wishlists`).
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects user profiles, ensuring only the user can read/write their own data.
+     * @description Manages user profiles. Users can only read and update their own profiles.
      * @path /users/{userId}
-     * @allow (create) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can create their own user document.
-     * @allow (get) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can read their own user document.
-     * @allow (update) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can update their own user document.
-     * @allow (delete) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can delete their own user document.
-     * @deny (create) - User with ID someOtherUserId attempts to create a document with ID xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @deny (get) - Another user attempts to read user data.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @allow (create) User with ID 'user123' can create their profile.
+     *   `request.auth.uid == 'user123'` and `request.resource.data.id == 'user123'`
+     * @allow (get) User with ID 'user123' can read their own profile.
+     *   `request.auth.uid == 'user123'`
+     * @allow (update) User with ID 'user123' can update their own profile.
+     *   `request.auth.uid == 'user123'` and `resource.data.id == 'user123'`
+     * @deny (create) User with ID 'user123' cannot create a profile for 'user456'.
+     *   `request.auth.uid == 'user123'` and `request.resource.data.id == 'user456'`
+     * @deny (update) User with ID 'user123' cannot update the profile of 'user456'.
+     *   `request.auth.uid == 'user123'` and `resource.data.id == 'user456'`
+     * @deny (delete) Only the user can delete their profile, and only if the profile exists.
+     *   `request.auth.uid != 'user123'` or `resource == null`
+     * @principle Enforces document ownership for reads and writes; validates relational integrity.
      */
     match /users/{userId} {
+      // Verify identity
       function isSignedIn() {
         return request.auth != null;
       }
 
+      // Check user ownership
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
+      // Check existing user ownership
+      function isExistingOwner(userId) {
+        return isOwner(userId) && exists(resource);
+      }
+
+      // Read permissions
       allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted
+      allow list: if false; // User listing is disallowed
 
-      // Allow a user to create their own document, enforcing ID consistency.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Enforce ownership and immutability of the userId on updates.
-      allow update: if isOwner(userId) && resource.data.id == userId;
-
-      // Only the owner can delete their profile.
-      allow delete: if isOwner(userId) && resource != null;
+      // Write permissions
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to academic resource listings.  Public read, owner-only write.
+     * @description Manages academic resource listings. Allows public read access, but restricts writes to the owner.
      * @path /listings/{listingId}
-     * @allow (get) - Any user can read any listing.
-     * @allow (list) - Any user can list listings.
-     * @allow (create) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can create a listing with userId = xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @allow (update) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can update a listing where listing.userId == xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @allow (delete) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can delete a listing where listing.userId == xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @deny (create) - User with ID someOtherUserId attempts to create a listing with userId = xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @deny (update) - User with ID someOtherUserId attempts to update a listing where listing.userId == xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @principle Allows public read access but enforces ownership for write operations.
+     * @allow (get) Any user can read a listing.
+     *   `true`
+     * @allow (list) Any user can list listings.
+     *   `true`
+     * @allow (create) User 'user123' can create a listing with their user ID.
+     *   `request.auth.uid == 'user123'` and `request.resource.data.userId == 'user123'`
+     * @allow (update) User 'user123' can update their listing.
+     *   `request.auth.uid == 'user123'` and `resource.data.userId == 'user123'` and `resource != null`
+     * @allow (delete) User 'user123' can delete their listing.
+     *   `request.auth.uid == 'user123'` and `resource.data.userId == 'user123'` and `resource != null`
+     * @deny (create) User 'user123' cannot create a listing with someone else's user ID.
+     *   `request.auth.uid == 'user123'` and `request.resource.data.userId == 'user456'`
+     * @deny (update) User 'user123' cannot update a listing they don't own.
+     *   `request.auth.uid == 'user123'` and `resource.data.userId == 'user456'`
+     * @deny (delete) User 'user123' cannot delete a listing they don't own.
+     *   `request.auth.uid == 'user123'` and `resource.data.userId == 'user456'`
+     * @principle Enforces document ownership for writes, allows public reads, validates relational integrity.
      */
     match /listings/{listingId} {
+      // Verify identity
       function isSignedIn() {
         return request.auth != null;
       }
 
+      // Check user ownership
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
-      allow get, list: if true; // Public read access for listings
+      // Check existing listing ownership
+      function isExistingOwner() {
+        return isSignedIn() && request.auth.uid == resource.data.userId;
+      }
 
-      // Only allow create if the user is signed in and the userId matches the authenticated user.
+      // Read permissions
+      allow get: if true;
+      allow list: if true;
+
+      // Write permissions
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-
-      // Only the owner can update or delete the listing, ensure the document exists.
-      allow update: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
-      allow delete: if isSignedIn() && isOwner(resource.data.userId) && resource != null;
+      allow update: if isSignedIn() && isExistingOwner();
+      allow delete: if isSignedIn() && isExistingOwner();
     }
 
     /**
-     * @description Controls access to chat messages.
+     * @description Manages chat messages exchanged between users.
      * @path /chat_messages/{chatMessageId}
-     * @allow (create) - Any authenticated user can create a chat message.
-     * @allow (get) - Any authenticated user can read a chat message.
-     * @allow (list) - Any authenticated user can list chat messages.
-     * @allow (update) - No one can update a chat message.
-     * @allow (delete) - No one can delete a chat message.
-     * @deny (create) - An unauthenticated user tries to create a chat message.
-     * @deny (update) - An authenticated user tries to update a chat message.
-     * @deny (delete) - An authenticated user tries to delete a chat message.
-     * @principle Allows all authenticated users to create and read chat messages but restricts updates and deletes.
+     * @allow (create) Any authenticated user can create a chat message.
+     *   `request.auth != null`
+     * @allow (get) Any authenticated user can get a chat message.
+     *   `request.auth != null`
+     * @allow (list) Any authenticated user can list chat messages.
+     *   `request.auth != null`
+     * @deny (update) No one can update an existing chat message.
+     *   `true`
+     * @deny (delete) No one can delete a chat message.
+     *   `true`
+     * @principle Restricts updates and deletes to protect chat message integrity.
      */
     match /chat_messages/{chatMessageId} {
+      // Verify identity
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get, list: if isSignedIn();
+      // Read permissions
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // Write permissions
       allow create: if isSignedIn();
-      allow update, delete: if false; // No updates or deletes allowed
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to user wishlists. Only the user can manage their own wishlist.
+     * @description Manages user wishlists. Wishlists are private to the owning user.
      * @path /users/{userId}/wishlists/{wishlistId}
-     * @allow (create) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can create a wishlist under their user document.
-     * @allow (get) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can read their own wishlist.
-     * @allow (list) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can list their own wishlists.
-     * @allow (update) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can update their own wishlist.
-     * @allow (delete) - User with ID xqBCK8gcsgQGfVFFan33QsQAqlC3 can delete their own wishlist.
-     * @deny (create) - User with ID someOtherUserId attempts to create a wishlist under user xqBCK8gcsgQGfVFFan33QsQAqlC3.
-     * @deny (get) - Another user attempts to read a user's wishlist.
-     * @principle Enforces strict ownership for all operations on user wishlists.
+     * @allow (create) User 'user123' can create a wishlist for themselves.
+     *   `request.auth.uid == 'user123'`
+     * @allow (get) User 'user123' can read their own wishlist.
+     *   `request.auth.uid == 'user123'`
+     * @allow (list) User 'user123' can list their own wishlists.
+     *   `request.auth.uid == 'user123'`
+     * @allow (update) User 'user123' can update their own wishlist.
+     *   `request.auth.uid == 'user123'` and `resource != null`
+     * @allow (delete) User 'user123' can delete their own wishlist.
+     *   `request.auth.uid == 'user123'` and `resource != null`
+     * @deny (create) User 'user123' cannot create a wishlist for user 'user456'.
+     *   `request.auth.uid == 'user123'` but the path is `/users/user456/wishlists/{wishlistId}`
+     * @deny (update) User 'user123' cannot update the wishlist of user 'user456'.
+     *   `request.auth.uid == 'user123'` and the path is `/users/user456/wishlists/{wishlistId}`
+     * @deny (delete) User 'user123' cannot delete the wishlist of user 'user456'.
+     *   `request.auth.uid == 'user123'` and the path is `/users/user456/wishlists/{wishlistId}`
+     * @principle Restricts access to a user's own data tree. Enforces document ownership.
      */
     match /users/{userId}/wishlists/{wishlistId} {
+      // Verify identity
       function isSignedIn() {
         return request.auth != null;
       }
 
+      // Check user ownership
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
 
-      allow get, list: if isOwner(userId);
+      // Check existing user ownership
+      function isExistingOwner(userId) {
+        return isOwner(userId) && exists(resource);
+      }
+
+      // Read permissions
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      // Write permissions
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isOwner(userId) && resource != null;
-      allow delete: if isOwner(userId) && resource != null;
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to user reports.
+     * @description Manages user-submitted reports for listings.
      * @path /reports/{reportId}
-     * @allow (create) - Any authenticated user can create a report.
-     * @allow (get) - Any authenticated user can read a report.
-     * @allow (list) - Any authenticated user can list reports.
-     * @allow (update) - No one can update a report.
-     * @allow (delete) - No one can delete a report.
-     * @deny (create) - An unauthenticated user tries to create a report.
-     * @deny (update) - An authenticated user tries to update a report.
-     * @deny (delete) - An authenticated user tries to delete a report.
-     * @principle Allows all authenticated users to create and read reports but restricts updates and deletes.
+     * @allow (get) Any authenticated user can read reports.
+     *   `request.auth != null`
+     * @allow (list) Any authenticated user can list reports.
+     *   `request.auth != null`
+     * @deny (create) No user can create a new report.
+     *   `true`
+     * @deny (update) No user can update an existing report.
+     *   `true`
+     * @deny (delete) No user can delete a report.
+     *   `true`
      */
     match /reports/{reportId} {
+      // Verify identity
       function isSignedIn() {
         return request.auth != null;
       }
 
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if false; // No updates or deletes allowed
+      // Read permissions
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+
+      // Write permissions
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
