@@ -18,9 +18,10 @@ import {
 import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { useCollection, useFirebase } from '@/firebase';
+import { useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { useMemo } from 'react';
+import { useUser } from '@/firebase/provider';
 
 
 const categoryIcons = {
@@ -32,8 +33,8 @@ const categoryIcons = {
 };
 
 export default function HomePage() {
-  const { firestore } = useFirebase();
-  const listingsCollection = useMemo(() => collection(firestore, 'listings'), [firestore]);
+  const { firestore } = useUser();
+  const listingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
   const { data: resources, isLoading } = useCollection(listingsCollection);
   
   return (

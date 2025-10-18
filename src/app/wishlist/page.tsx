@@ -11,22 +11,21 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { X, IndianRupee, BookOpen, Heart } from 'lucide-react';
 import Link from 'next/link';
-import { useFirebase, useUser, useCollection, useDoc } from '@/firebase';
+import { useUser, useCollection, useDoc } from '@/firebase';
 import { doc, collection, query, where, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
 export default function WishlistPage() {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, firestore } = useUser();
   const { toast } = useToast();
 
-  const wishlistRef = useMemo(() => user ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
+  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
   const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
 
   const listingsQuery = useMemo(() => {
-    if (!wishlist?.listingIds || wishlist.listingIds.length === 0) return null;
+    if (!firestore || !wishlist?.listingIds || wishlist.listingIds.length === 0) return null;
     return query(collection(firestore, 'listings'), where('__name__', 'in', wishlist.listingIds));
   }, [firestore, wishlist]);
 

@@ -14,7 +14,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { useDoc, useFirebase, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useDoc, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, where, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,8 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, firestore } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [isReporting, setIsReporting] = useState(false);
@@ -47,13 +46,13 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   const [aiRecommendations, setAiRecommendations] = useState<any[] | null>(null);
   const [areRecsLoading, setAreRecsLoading] = useState(false);
 
-  const resourceRef = useMemo(() => doc(firestore, 'listings', params.id), [firestore, params.id]);
+  const resourceRef = useMemo(() => firestore ? doc(firestore, 'listings', params.id) : null, [firestore, params.id]);
   const { data: resource, isLoading: isResourceLoading } = useDoc(resourceRef);
 
-  const allListingsCollection = useMemo(() => collection(firestore, 'listings'), [firestore]);
+  const allListingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
   const { data: allListings } = useCollection(allListingsCollection);
 
-  const wishlistRef = useMemo(() => user ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
+  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
   const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
 
   const isInWishlist = useMemo(() => {
@@ -85,7 +84,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       router.push('/login');
       return;
     }
-    if (!resource) return;
+    if (!resource || !firestore) return;
 
     setIsReporting(true);
     try {

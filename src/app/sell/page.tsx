@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase"
+import { useUser, addDocumentNonBlocking } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { UploadCloud } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -27,8 +27,7 @@ import { collection, serverTimestamp } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 export default function SellPage() {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, firestore } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -51,6 +50,10 @@ export default function SellPage() {
     e.preventDefault();
     if (!user) {
       toast({ variant: 'destructive', title: 'You must be logged in to sell an item.' });
+      return;
+    }
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Database not available, please try again later.' });
       return;
     }
     if (!title || !description || !category || !department || !semester || !price || !imageFile) {

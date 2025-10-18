@@ -18,7 +18,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Menu, Search, Heart, MessageCircle, PlusCircle, LayoutDashboard, User, LogOut, Settings } from 'lucide-react';
 import { Logo } from './logo';
-import { useFirebase, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase/firestore/use-doc';
@@ -32,15 +32,15 @@ const navLinks = [
 ];
 
 export default function Header() {
-  const { user } = useUser();
-  const { auth, firestore } = useFirebase();
+  const { user, auth, firestore } = useUser();
   const router = useRouter();
 
-  const userDocRef = useMemo(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+  const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userData } = useDoc(userDocRef);
   const isAdmin = userData?.isAdmin;
 
   const handleLogout = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/');
   };

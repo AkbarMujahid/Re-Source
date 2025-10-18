@@ -1,6 +1,6 @@
 'use client';
-import { useFirebase, useUser, useCollection } from '@/firebase';
-import { collection, query, where, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { useUser } from '@/firebase';
+import { collection, query, where, orderBy, doc, updateDoc, Firestore } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase/firestore/use-doc';
@@ -26,16 +26,18 @@ import {
 } from "@/components/ui/tabs"
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { useCollection } from '@/firebase/firestore/use-collection';
 
 export default function AdminPage() {
     const { firestore, user } = useUser();
     const router = useRouter();
     const { toast } = useToast();
 
-    const userDocRef = useMemo(() => user ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
+    const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
     const { data: userData, isLoading: isUserLoading } = useDoc(userDocRef);
 
     const reportsQuery = useMemo(() => {
+        if (!firestore) return null;
         return query(collection(firestore, 'reports'), orderBy('createdAt', 'desc'));
     }, [firestore]);
 
@@ -63,6 +65,7 @@ export default function AdminPage() {
     }
     
     const handleResolveReport = async (reportId: string) => {
+        if (!firestore) return;
         const reportRef = doc(firestore, 'reports', reportId);
         try {
             await updateDoc(reportRef, { status: 'resolved' });
