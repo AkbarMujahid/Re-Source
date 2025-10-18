@@ -17,6 +17,7 @@ import { collection, limit, orderBy, query } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { useUser } from '@/firebase/provider';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Listing } from '@/lib/types';
 
 
 const categoryIcons = {
@@ -33,7 +34,7 @@ export default function HomePage() {
     if (!firestore) return null;
     return query(collection(firestore, 'listings'), orderBy('createdAt', 'desc'), limit(8));
   }, [firestore]);
-  const { data: resources, isLoading } = useCollection(listingsCollection);
+  const { data: resources, isLoading } = useCollection<Listing>(listingsCollection);
   
   return (
     <div className="w-full animate-fade-in-up">
@@ -89,7 +90,7 @@ export default function HomePage() {
                 <CardHeader className="p-0 relative">
                   <Link href={`/listings/${resource.id}`}>
                     <Image
-                      src={resource.imageUrl}
+                      src={resource.imageUrls[0]}
                       alt={resource.title}
                       width={600}
                       height={400}

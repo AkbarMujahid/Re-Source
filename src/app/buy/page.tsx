@@ -24,6 +24,7 @@ import { collection } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { useUser } from '@/firebase/provider';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Listing } from '@/lib/types';
 
 const categoryIcons = {
   Textbooks: <BookOpen className="w-5 h-5" />,
@@ -36,7 +37,7 @@ const categoryIcons = {
 export default function BuyPage() {
   const { firestore } = useUser();
   const listingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
-  const { data: resources, isLoading } = useCollection(listingsCollection);
+  const { data: resources, isLoading } = useCollection<Listing>(listingsCollection);
   
   return (
     <div className="w-full animate-fade-in-up">
@@ -126,7 +127,7 @@ export default function BuyPage() {
                 <CardHeader className="p-0 relative">
                   <Link href={`/listings/${resource.id}`}>
                     <Image
-                      src={resource.imageUrl}
+                      src={resource.imageUrls[0]}
                       alt={resource.title}
                       width={600}
                       height={400}

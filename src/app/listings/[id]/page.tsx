@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle, Send } from 'lucide-react';
+import { Heart, Tag, Building, Calendar, IndianRupee, Lightbulb, AlertCircle, Send } from 'lucide-react';
 import Link from 'next/link';
 import {
   Carousel,
@@ -248,17 +248,32 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
         {/* Left Column - Image */}
         <div className="md:col-span-2">
-          <Card className="overflow-hidden shadow-lg">
-            <Image
-              src={resource.imageUrl}
-              alt={resource.title}
-              width={1200}
-              height={800}
-              className="object-cover w-full h-auto"
-              data-ai-hint={resource.imageHint}
-              priority
-            />
-          </Card>
+            <Carousel className="w-full shadow-lg rounded-lg overflow-hidden">
+                <CarouselContent>
+                    {resource.imageUrls.map((url, index) => (
+                        <CarouselItem key={index}>
+                            <Card className="border-0 rounded-none">
+                                <CardContent className="flex aspect-video items-center justify-center p-0">
+                                    <Image
+                                        src={url}
+                                        alt={`${resource.title} - image ${index + 1}`}
+                                        width={1200}
+                                        height={800}
+                                        className="object-cover w-full h-full"
+                                        priority={index === 0}
+                                    />
+                                </CardContent>
+                            </Card>
+                        </CarouselItem>
+                    ))}
+                </CarouselContent>
+                {resource.imageUrls.length > 1 && (
+                    <>
+                        <CarouselPrevious className="left-4" />
+                        <CarouselNext className="right-4" />
+                    </>
+                )}
+            </Carousel>
         </div>
 
         {/* Right Column - Details */}
@@ -359,7 +374,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                             <CardHeader className="p-0 relative">
                                 <Link href={`/listings/${item.id}`}>
                                 <Image
-                                    src={item.imageUrl}
+                                    src={item.imageUrls[0]}
                                     alt={item.title}
                                     width={600}
                                     height={400}

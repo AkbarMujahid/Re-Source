@@ -61,7 +61,7 @@ export default function WishlistPage() {
               <CardHeader className="p-0 relative">
                 <Link href={`/listings/${resource.id}`}>
                   <Image
-                    src={resource.imageUrl}
+                    src={resource.imageUrls[0]}
                     alt={resource.title}
                     width={600}
                     height={400}

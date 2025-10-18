@@ -91,7 +91,7 @@ export default function ProfilePage() {
                 <CardHeader className="p-0 relative">
                   <Link href={`/listings/${listing.id}`}>
                     <Image
-                      src={listing.imageUrl}
+                      src={listing.imageUrls[0]}
                       alt={listing.title}
                       width={600}
                       height={400}

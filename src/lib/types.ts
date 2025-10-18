@@ -8,7 +8,7 @@ export type Listing = {
   department: string;
   semester: string;
   price: number;
-  imageUrl: string;
+  imageUrls: string[];
   isApproved: boolean;
   sellerName?: string;
   sellerAvatarUrl?: string;

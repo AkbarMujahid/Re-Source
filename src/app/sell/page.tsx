@@ -1,45 +1,73 @@
 'use client';
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { useUser, addDocumentNonBlocking } from "@/firebase"
-import { useToast } from "@/hooks/use-toast"
-import { UploadCloud } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useState, useEffect, useMemo } from "react"
-import { collection, serverTimestamp } from 'firebase/firestore'
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useUser, addDocumentNonBlocking } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { UploadCloud, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import Image from "next/image";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+
+const formSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters long."),
+  description: z.string().min(20, "Description must be at least 20 characters long."),
+  category: z.string().min(1, "Please select a category."),
+  department: z.string().min(1, "Please select a department."),
+  semester: z.string().min(1, "Please select a semester."),
+  price: z.preprocess(
+    (a) => parseFloat(z.string().parse(a)),
+    z.number().positive("Price must be a positive number.")
+  ),
+  images: z
+    .custom<FileList>()
+    .refine((files) => files && files.length > 0, "At least one image is required.")
+    .refine((files) => Array.from(files).every((file) => file.size <= MAX_FILE_SIZE), `Each file size should be less than 5MB.`)
+    .refine((files) => Array.from(files).every((file) => ALLOWED_IMAGE_TYPES.includes(file.type)), "Only .jpg, .jpeg, .png and .webp formats are supported."),
+});
 
 export default function SellPage() {
   const { user, firestore, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
-  
-  const storage = useMemo(() => firestore ? getStorage() : null, [firestore]);
+  const storage = getStorage();
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [department, setDepartment] = useState('');
-  const [semester, setSemester] = useState('');
-  const [price, setPrice] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      price: 0,
+      images: undefined,
+    },
+  });
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -49,38 +77,54 @@ export default function SellPage() {
   }, [user, isUserLoading, router, toast]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setImageFile(e.target.files[0]);
+    const files = e.target.files;
+    if (files) {
+      form.setValue("images", files);
+      const newPreviews = Array.from(files).map(file => URL.createObjectURL(file));
+      setImagePreviews(newPreviews);
     }
   };
+  
+  const removeImage = (index: number) => {
+    const currentFiles = form.getValues("images");
+    if (!currentFiles) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !firestore || !storage) {
+    const newFiles = Array.from(currentFiles).filter((_, i) => i !== index);
+    const dt = new DataTransfer();
+    newFiles.forEach(file => dt.items.add(file));
+    
+    // This is a bit of a hack as react-hook-form doesn't have a simple way to remove from FileList
+    const input = document.querySelector<HTMLInputElement>('#dropzone-file');
+    if(input) input.files = dt.files;
+    
+    form.setValue("images", dt.files);
+    
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImagePreviews(newPreviews);
+  };
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Authentication error. Please log in again.' });
       return;
     }
-    if (!title || !description || !category || !department || !semester || !price || !imageFile) {
-        toast({ variant: 'destructive', title: 'Please fill all fields and upload an image.' });
-        return;
-    }
-
-    setIsLoading(true);
-
+    
+    setIsSubmitting(true);
+    
     try {
-      const imageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${imageFile.name}`);
-      const uploadResult = await uploadBytes(imageRef, imageFile);
-      const imageUrl = await getDownloadURL(uploadResult.ref);
+      const imageUrls: string[] = [];
+      for (const imageFile of Array.from(values.images)) {
+        const imageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${imageFile.name}`);
+        const uploadResult = await uploadBytes(imageRef, imageFile);
+        const imageUrl = await getDownloadURL(uploadResult.ref);
+        imageUrls.push(imageUrl);
+      }
 
       const listingsCollection = collection(firestore, 'listings');
       addDocumentNonBlocking(listingsCollection, {
-        title,
-        description,
-        category,
-        department,
-        semester,
-        price: parseFloat(price),
-        imageUrl,
+        ...values,
+        images: undefined, // Don't save the file list to Firestore
+        imageUrls,
         userId: user.uid,
         sellerName: user.displayName,
         sellerAvatarUrl: user.photoURL,
@@ -90,7 +134,7 @@ export default function SellPage() {
 
       toast({ 
         title: 'Listing Created!',
-        description: `Your item "${title}" has been successfully listed.`,
+        description: `Your item "${values.title}" has been successfully listed.`,
       });
       router.push('/buy');
 
@@ -102,12 +146,12 @@ export default function SellPage() {
         description: error.message,
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
   
   if (isUserLoading || !user) {
-      return null;
+      return null; // or a loading spinner
   }
 
   return (
@@ -120,103 +164,165 @@ export default function SellPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-6" onSubmit={handleSubmit}>
-            <div className="grid gap-2">
-              <Label htmlFor="title" className="font-bold">Item Title</Label>
-              <Input id="title" placeholder="e.g., Advanced Calculus Textbook, 2nd Edition" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isLoading} />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description" className="font-bold">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe the item's condition, edition, and any other relevant details."
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                disabled={isLoading}
+          <Form {...form}>
+            <form className="grid gap-6" onSubmit={form.handleSubmit(onSubmit)}>
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Item Title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Advanced Calculus Textbook, 2nd Edition" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
+
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Description</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Describe the item's condition, edition, etc." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="grid gap-2">
-                  <Label htmlFor="category" className="font-bold">Category</Label>
-                   <Select onValueChange={setCategory} value={category} disabled={isLoading}>
-                    <SelectTrigger id="category">
-                        <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Textbooks">Textbooks</SelectItem>
-                        <SelectItem value="Notes">Notes</SelectItem>
-                        <SelectItem value="Study Aids">Study Aids</SelectItem>
-                        <SelectItem value="Equipment">Equipment</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
-                 <div className="grid gap-2">
-                  <Label htmlFor="department" className="font-bold">Department</Label>
-                   <Select onValueChange={setDepartment} value={department} disabled={isLoading}>
-                    <SelectTrigger id="department">
-                        <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Computer Science">Computer Science</SelectItem>
-                        <SelectItem value="Mathematics">Mathematics</SelectItem>
-                        <SelectItem value="Chemistry">Chemistry</SelectItem>
-                        <SelectItem value="Psychology">Psychology</SelectItem>
-                        <SelectItem value="Electronics">Electronics</SelectItem>
-                        <SelectItem value="Biology">Biology</SelectItem>
-                        <SelectItem value="Literature">Literature</SelectItem>
-                    </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="grid gap-2">
-                    <Label htmlFor="semester" className="font-bold">Semester</Label>
-                     <Select onValueChange={setSemester} value={semester} disabled={isLoading}>
-                        <SelectTrigger id="semester">
-                            <SelectValue placeholder="Select a semester" />
-                        </SelectTrigger>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                        </FormControl>
                         <SelectContent>
-                            <SelectItem value="1">1</SelectItem>
-                            <SelectItem value="2">2</SelectItem>
-                            <SelectItem value="3">3</SelectItem>
-                            <SelectItem value="4">4</SelectItem>
-                            <SelectItem value="5">5</SelectItem>
-                            <SelectItem value="6">6</SelectItem>
-                            <SelectItem value="7">7</SelectItem>
-                            <SelectItem value="8">8</SelectItem>
+                          <SelectItem value="Textbooks">Textbooks</SelectItem>
+                          <SelectItem value="Notes">Notes</SelectItem>
+                          <SelectItem value="Study Aids">Study Aids</SelectItem>
+                          <SelectItem value="Equipment">Equipment</SelectItem>
                         </SelectContent>
-                    </Select>
-                </div>
-                 <div className="grid gap-2">
-                    <Label htmlFor="price" className="font-bold">Price (₹)</Label>
-                    <Input id="price" type="number" placeholder="e.g., 3500.00" value={price} onChange={(e) => setPrice(e.target.value)} disabled={isLoading}/>
-                </div>
-            </div>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Department</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                           <SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="Computer Science">Computer Science</SelectItem>
+                            <SelectItem value="Mathematics">Mathematics</SelectItem>
+                            <SelectItem value="Chemistry">Chemistry</SelectItem>
+                            <SelectItem value="Psychology">Psychology</SelectItem>
+                            <SelectItem value="Electronics">Electronics</SelectItem>
+                            <SelectItem value="Biology">Biology</SelectItem>
+                            <SelectItem value="Literature">Literature</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-             <div className="grid gap-2">
-              <Label htmlFor="photos" className="font-bold">Photos</Label>
-              <div className="flex items-center justify-center w-full">
-                <Label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/80 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                        <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                        {imageFile ? <p className="text-sm text-foreground">{imageFile.name}</p> :
-                        <>
-                          <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                          <p className="text-xs text-muted-foreground">PNG, JPG, etc.</p>
-                        </>
-                        }
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="semester"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold">Semester</FormLabel>
+                       <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select a semester" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            {[...Array(8)].map((_, i) => <SelectItem key={i+1} value={`${i+1}`}>{i+1}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-bold">Price (₹)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="e.g., 3500.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="images"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Photos</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center justify-center w-full">
+                        <Label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted/80 transition-colors">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                                <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                                <p className="mb-1 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                                <p className="text-xs text-muted-foreground">PNG, JPG, WEBP (MAX 5MB each)</p>
+                            </div>
+                            <Input id="dropzone-file" type="file" className="hidden" multiple={true} onChange={handleImageChange} disabled={isSubmitting} accept={ALLOWED_IMAGE_TYPES.join(",")} />
+                        </Label>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                  {imagePreviews.map((src, index) => (
+                    <div key={index} className="relative aspect-square group">
+                      <Image src={src} alt={`Preview ${index + 1}`} fill className="object-cover rounded-md" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeImage(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Input id="dropzone-file" type="file" className="hidden" multiple={false} onChange={handleImageChange} disabled={isLoading} accept="image/*" />
-                </Label>
-                </div> 
-            </div>
-            <Button size="lg" type="submit" disabled={isLoading} className="w-full text-lg">
-              {isLoading ? 'Listing Item...' : 'List Item for Sale'}
-            </Button>
-          </form>
+                  ))}
+                </div>
+              )}
+              
+              <Button size="lg" type="submit" disabled={isSubmitting} className="w-full text-lg">
+                {isSubmitting ? 'Listing Item...' : 'List Item for Sale'}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
