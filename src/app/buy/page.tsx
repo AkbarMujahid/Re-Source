@@ -39,7 +39,7 @@ export default function BuyPage() {
   const { data: resources, isLoading } = useCollection(listingsCollection);
   
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-in-up">
       {/* Search and Filter Section */}
       <section className="bg-background sticky top-16 z-40 shadow-sm py-4 border-b">
         <div className="container mx-auto px-4">

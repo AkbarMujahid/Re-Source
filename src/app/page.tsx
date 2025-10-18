@@ -36,7 +36,7 @@ export default function HomePage() {
   const { data: resources, isLoading } = useCollection(listingsCollection);
   
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-in-up">
       {/* Hero Section */}
       <section className="relative bg-primary/10 py-20 md:py-32 text-center">
         <div className="container mx-auto px-4">
