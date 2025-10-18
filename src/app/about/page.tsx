@@ -9,24 +9,10 @@ import Link from "next/link";
 const teamMembers = [
   {
     name: "Akbar Mujahid",
-    role: "Founder & CEO",
+    role: "Founder, CEO, Lead Developer & UX/UI Designer",
     avatar: "/avatars/01.png",
     fallback: "AM",
     imageUrl: "https://picsum.photos/seed/team1/500/500"
-  },
-  {
-    name: "Jane Doe",
-    role: "Lead Developer",
-    avatar: "/avatars/02.png",
-    fallback: "JD",
-    imageUrl: "https://picsum.photos/seed/team2/500/500"
-  },
-  {
-    name: "Peter Jones",
-    role: "UX/UI Designer",
-    avatar: "/avatars/03.png",
-    fallback: "PJ",
-    imageUrl: "https://picsum.photos/seed/team3/500/500"
   },
 ];
 
@@ -127,7 +113,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold font-headline">Meet The Team</h2>
-            <p className="text-lg text-muted-foreground mt-2">The people behind Re-Source.</p>
+            <p className="text-lg text-muted-foreground mt-2">The person behind Re-Source.</p>
           </div>
           <div className="flex flex-wrap justify-center gap-8 md:gap-12">
             {teamMembers.map((member) => (
