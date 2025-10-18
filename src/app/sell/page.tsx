@@ -22,12 +22,12 @@ import { useUser, addDocumentNonBlocking } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { UploadCloud } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { collection, serverTimestamp } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 export default function SellPage() {
-  const { user, firestore } = useUser();
+  const { user, firestore, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -40,6 +40,13 @@ export default function SellPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      toast({ variant: 'destructive', title: 'You must be logged in to sell an item.' });
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, toast]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setImageFile(e.target.files[0]);
@@ -48,12 +55,9 @@ export default function SellPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({ variant: 'destructive', title: 'You must be logged in to sell an item.' });
-      return;
-    }
-    if (!firestore) {
-      toast({ variant: 'destructive', title: 'Database not available, please try again later.' });
+    if (!user || !firestore) {
+      // This should not happen due to the useEffect redirect, but it's a good safeguard.
+      toast({ variant: 'destructive', title: 'Authentication error. Please log in again.' });
       return;
     }
     if (!title || !description || !category || !department || !semester || !price || !imageFile) {
@@ -88,7 +92,7 @@ export default function SellPage() {
       });
 
       toast({ title: 'Listing created successfully!' });
-      router.push('/');
+      router.push('/buy');
 
     } catch (error: any) {
       console.error("Error creating listing:", error);
@@ -101,6 +105,10 @@ export default function SellPage() {
       setIsLoading(false);
     }
   };
+  
+  if (isUserLoading || !user) {
+      return null; // or a loading spinner
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
@@ -197,11 +205,11 @@ export default function SellPage() {
                         {imageFile ? <p className="text-sm text-muted-foreground">{imageFile.name}</p> :
                         <>
                           <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                          <p className="text-xs text-muted-foreground">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                          <p className="text-xs text-muted-foreground">PNG, JPG, or any image format</p>
                         </>
                         }
                     </div>
-                    <Input id="dropzone-file" type="file" className="hidden" multiple={false} onChange={handleImageChange} disabled={isLoading} />
+                    <Input id="dropzone-file" type="file" className="hidden" multiple={false} onChange={handleImageChange} disabled={isLoading} accept="image/*" />
                 </Label>
                 </div> 
             </div>
