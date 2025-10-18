@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "A textbook for advanced calculus",
+      "imageUrl": "https://images.unsplash.com/photo-1636819483716-854492c76683?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxjYWxjdWx1cyUyMHRleHRib29rfGVufDB8fHx8MTc2MDc5MTczM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "calculus textbook"
+    },
+    {
+      "id": "2",
+      "description": "A molecular model kit for organic chemistry",
+      "imageUrl": "https://images.unsplash.com/photo-1740490278517-21ec451914f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaGVtaXN0cnklMjBraXR8ZW58MHx8fHwxNzYwNzkxNzMzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "chemistry kit"
+    },
+    {
+      "id": "3",
+      "description": "Handwritten notes on data structures and algorithms",
+      "imageUrl": "https://images.unsplash.com/photo-1642083139428-9ee5fa423c46?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwcm9ncmFtbWluZyUyMG5vdGVzfGVufDB8fHx8MTc2MDc5MTczM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "programming notes"
+    },
+    {
+      "id": "4",
+      "description": "An introductory psychology textbook",
+      "imageUrl": "https://images.unsplash.com/photo-1613870221528-f7a918522a4b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwc3ljaG9sb2d5JTIwYm9va3xlbnwwfHx8fDE3NjA3OTE3MzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "psychology book"
+    },
+    {
+      "id": "5",
+      "description": "A digital logic design board with components",
+      "imageUrl": "https://images.unsplash.com/photo-1697952431907-8542919a16b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjaXJjdWl0JTIwYm9hcmR8ZW58MHx8fHwxNzYwNzM3NTUyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "circuit board"
+    },
+    {
+      "id": "6",
+      "description": "An anthology of literary theory texts",
+      "imageUrl": "https://images.unsplash.com/photo-1631891256090-0042b3784a1b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxsaXRlcmF0dXJlJTIwYm9va3xlbnwwfHx8fDE3NjA3MzM0MzV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "literature book"
+    },
+    {
+      "id": "7",
+      "description": "A white lab coat for microbiology",
+      "imageUrl": "https://images.unsplash.com/photo-1591273378246-397331fcdc43?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxsYWIlMjBjb2F0fGVufDB8fHx8MTc2MDc5MTczM3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "lab coat"
+    },
+    {
+      "id": "8",
+      "description": "A guide to advanced Python programming",
+      "imageUrl": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxweXRob24lMjBjb2RlfGVufDB8fHx8MTc2MDc3ODE1NHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "python code"
+    }
+  ]
 }
