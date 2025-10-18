@@ -46,12 +46,12 @@ export default function AboutPage() {
           </div>
           <div className="order-1 md:order-2">
             <Image
-              src="https://picsum.photos/seed/collaboration/600/400"
-              alt="Students collaborating"
+              src="https://picsum.photos/seed/campus/600/400"
+              alt="College campus"
               width={600}
               height={400}
               className="rounded-lg shadow-lg object-cover w-full"
-              data-ai-hint="students collaborating"
+              data-ai-hint="college campus"
             />
           </div>
         </div>
