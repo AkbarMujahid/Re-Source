@@ -15,9 +15,8 @@ service cloud.firestore {
       return isOwner(userId) && resource != null;
     }
 
-    function isParticipant(conversationId) {
-      return isSignedIn() &&
-        request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    function isListingOwner(listingId) {
+      return isSignedIn() && request.auth.uid == get(/databases/$(database)/documents/listings/$(listingId)).data.userId;
     }
 
     // -------------------- USERS --------------------
@@ -35,23 +34,19 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
-    }
 
-    // -------------------- CONVERSATIONS --------------------
-    match /conversations/{conversationId} {
-      allow get: if isParticipant(conversationId);
-      allow list: if isSignedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId)) && isParticipant(conversationId);
-      allow create: if isSignedIn() && request.resource.data.participants is list && request.auth.uid in request.resource.data.participants;
-      allow update: if isParticipant(conversationId);
-      allow delete: if isParticipant(conversationId);
-    }
+      // -------------------- MESSAGES (under each listing) --------------------
+      match /messages/{messageId} {
+        // Any signed-in user can create a message
+        allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid
+                      && request.resource.data.message is string;
 
-    // -------------------- MESSAGES --------------------
-    match /conversations/{conversationId}/messages/{messageId} {
-      allow get, list: if isParticipant(conversationId);
-      allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
+        // Any signed-in user can read messages
+        allow get, list: if isSignedIn();
+
+        // No edits or deletes allowed
+        allow update, delete: if false;
+      }
     }
 
     // -------------------- WISHLISTS --------------------
@@ -66,7 +61,8 @@ service cloud.firestore {
     match /reports/{reportId} {
       allow get: if isSignedIn();
       allow list: if false;
-      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid && request.resource.data.listingId is string;
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.listingId is string;
       allow update: if false;
       allow delete: if false;
     }
