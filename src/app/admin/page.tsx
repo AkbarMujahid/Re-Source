@@ -53,11 +53,14 @@ export default function AdminPage() {
     value: { label: 'Listings' },
   };
 
-  if (isUserLoading || user?.uid !== ADMIN_UID) {
-    return (
+  // If the user is not the admin, the useEffect will redirect them.
+  // We can render the panel structure with skeletons while data is loading.
+  if (user?.uid !== ADMIN_UID && !isUserLoading) {
+    // This will be shown briefly before redirection.
+     return (
       <div className="container text-center py-12">
         <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-        <p className="mt-4 text-muted-foreground">Loading or checking permissions...</p>
+        <p className="mt-4 text-muted-foreground">Access Denied. Redirecting...</p>
       </div>
     );
   }
