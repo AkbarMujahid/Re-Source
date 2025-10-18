@@ -2,105 +2,168 @@
  * @fileOverview Firestore Security Rules for the Re-Source application.
  *
  * Core Philosophy:
- * Enforces strict user-ownership for user-specific data while allowing public read access to listings.
- * Admins are managed through the /roles_admin collection or auth token.
+ * This ruleset enforces a strict user-ownership model for personal data and employs
+ * a existence-based role system for administrative privileges. It leverages denormalization
+ * to avoid costly `get()` operations in the rules.  It assumes that the data
+ * has already been validated, and therefore does not validate data content, merely
+ * the integrity of relationships through id matching.
  *
  * Data Structure:
- * - /users/{userId}: User profiles.
- * - /listings/{listingId}: Resource listings with userId field.
- * - /chat_messages/{chatMessageId}: Chat messages.
- * - /users/{userId}/wishlists/{wishlistId}: User wishlists.
- * - /recommendations/{recommendationId}: Resource recommendations.
- * - /reports/{reportId}: Reports of inappropriate content.
- * - /roles_admin/{userId}: Document existence indicates admin status.
+ * - /users/{userId}: Stores user profiles. Only the user themselves can read/write
+ *   their own profile.
+ * - /listings/{listingId}: Stores academic resource listings. Anyone can read a listing,
+ *   but only the owner can modify or delete it. The 'userId' field is denormalized
+ *   for efficient ownership checks.
+ * - /chat_messages/{chatMessageId}: Stores chat messages. Due to the bidirectional
+ *   nature of chats, and in the absence of explicit chat room documents, these
+ *   are publicly readable, but writes are not allowed in this prototype.
+ * - /users/{userId}/wishlists/{wishlistId}: Stores user wishlists. Only the user
+ *   themselves can manage their own wishlists.
+ * - /recommendations/{recommendationId}: Stores personalized recommendations. These are
+ *   publicly readable, but writes are not allowed in this prototype.
+ * - /reports/{reportId}: Stores reports of inappropriate content. These are publicly
+ *   readable, but writes are not allowed in this prototype.
+ * - /roles_admin/{userId}: Presence of a document indicates admin status for a user.
+ *   Only admins can create/delete these documents, effectively managing the admin role.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to prevent information leakage.
+ * - Read-only collections (`recommendations`, `reports`) are publicly readable.
+ * - The default security posture for ambiguous relationships is owner-only access.
+ *
+ * Denormalization for Authorization:
+ * - Listings denormalize the `userId` to allow for fast ownership checks without
+ *   requiring additional reads.
+ *
+ * Structural Segregation:
+ * - User-specific data (wishlists) is stored in user subcollections to simplify
+ *   ownership checks.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    // -------------------- MODIFIED isAdmin() --------------------
-    function isAdmin() {
-      // Check token first
-      let tokenAdmin = request.auth.token.isAdmin == true;
-
-      // Check roles_admin collection
-      let collectionAdmin = exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
-
-      // Return true if either method says admin
-      return isSignedIn() && (tokenAdmin || collectionAdmin);
-    }
-
-    // -------------------- USERS --------------------
+    /**
+     * @description Enforces user-ownership for user profiles. Only the user themselves can read or write their profile.
+     * @path /users/{userId}
+     * @allow (get, create, update, delete) if the requesting user's UID matches the `userId` in the path.
+     * @deny (get, create, update, delete) if the requesting user's UID does not match the `userId` in the path.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // User listing is disallowed.
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
-    // -------------------- LISTINGS --------------------
+    /**
+     * @description Allows anyone to read listings, but only the owner can modify or delete them.
+     * @path /listings/{listingId}
+     * @allow (get, list) anyone can read listings.
+     * @allow (create) only the authenticated user can create listings with matching userId in data.
+     * @allow (update, delete) only the owner (userId in the listing data) can update or delete listings.
+     * @deny (create, update, delete) if the user is not the owner, or trying to change owner.
+     * @principle Allows public read access with owner-only writes, enforcing document ownership for writes.
+     */
     match /listings/{listingId} {
+      function isOwner(userId) {
+        return request.auth != null && userId == request.auth.uid;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow update: if isExistingOwner(resource.data.userId);
       allow delete: if isExistingOwner(resource.data.userId);
     }
 
-    // -------------------- CHAT MESSAGES --------------------
+    /**
+     * @description Allows anyone to read chat messages, but no one can create, update, or delete them.
+     * @path /chat_messages/{chatMessageId}
+     * @allow (get, list) anyone can read chat messages.
+     * @deny (create, update, delete) no one can create, update, or delete chat messages.
+     * @principle Provides public read access while preventing any modifications.
+     */
     match /chat_messages/{chatMessageId} {
-      allow get: if isSignedIn();
-      allow list: if false;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
-    // -------------------- WISHLISTS --------------------
+    /**
+     * @description Enforces user-ownership for wishlists. Only the user themselves can manage their own wishlists.
+     * @path /users/{userId}/wishlists/{wishlistId}
+     * @allow (get, create, update, delete) if the requesting user's UID matches the `userId` in the path.
+     * @deny (get, create, update, delete) if the requesting user's UID does not match the `userId` in the path.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
     match /users/{userId}/wishlists/{wishlistId} {
-      allow get, list: if isOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
       allow delete: if isExistingOwner(userId);
     }
 
-    // -------------------- RECOMMENDATIONS --------------------
+    /**
+     * @description Allows anyone to read recommendations, but no one can create, update, or delete them.
+     * @path /recommendations/{recommendationId}
+     * @allow (get, list) anyone can read recommendations.
+     * @deny (create, update, delete) no one can create, update, or delete recommendations.
+     * @principle Provides public read access while preventing any modifications.
+     */
     match /recommendations/{recommendationId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
-    // -------------------- REPORTS --------------------
+    /**
+     * @description Allows anyone to read reports, but no one can create, update, or delete them.
+     * @path /reports/{reportId}
+     * @allow (get, list) anyone can read reports.
+     * @deny (create, update, delete) no one can create, update, or delete reports.
+     * @principle Provides public read access while preventing any modifications.
+     */
     match /reports/{reportId} {
-      allow create: if isSignedIn();
-      allow get: if isAdmin();
-      allow list: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
-    // -------------------- ROLES_ADMIN --------------------
+   /**
+    * @description Controls access to the admin role. Only authenticated users can create or delete a document (grant or revoke admin).
+    * @path /roles_admin/{userId}
+    * @allow (create, delete) if the requesting user is already an admin.
+    * @deny (get, list, update)
+    * @principle DBAC (Database-Based Access Control) - Admin role is determined by the presence of a document in `/roles_admin/{userId}`.
+    */
     match /roles_admin/{userId} {
-      allow get: if isAdmin();
+      function isAdmin() {
+        return request.auth.uid != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      allow get: if false;
       allow list: if false;
       allow create: if isAdmin();
       allow update: if false;
-      allow delete: if isAdmin() && resource != null;
+      allow delete: if isAdmin();
     }
   }
 }
