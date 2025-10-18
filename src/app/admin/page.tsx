@@ -1,7 +1,7 @@
 'use client';
 import { useUser } from '@/firebase';
 import { collection, query, where, orderBy, doc, updateDoc, Firestore } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { AlertCircle, CheckCircle, Clock, ShieldCheck, Inbox, MessageSquare } from 'lucide-react';
@@ -42,6 +42,13 @@ export default function AdminPage() {
     }, [firestore]);
 
     const { data: reports, isLoading: areReportsLoading } = useCollection(reportsQuery);
+    
+    useEffect(() => {
+        // Security: Redirect if user is not an admin after loading is complete.
+        if (!isUserLoading && userData && !userData.isAdmin) {
+            router.replace('/');
+        }
+    }, [isUserLoading, userData, router]);
 
     const pendingReports = useMemo(() => reports?.filter(r => r.status === 'pending'), [reports]);
     const resolvedReports = useMemo(() => reports?.filter(r => r.status === 'resolved'), [reports]);
@@ -52,14 +59,13 @@ export default function AdminPage() {
         return <AdminPageSkeleton />;
     }
 
-    // Security: Redirect if user is not an admin
+    // Security: Show access denied if user is not an admin, while redirecting
     if (!isUserLoading && !userData?.isAdmin) {
-        router.replace('/');
         return (
             <div className="container text-center py-12">
                 <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
                 <h1 className="mt-4 text-2xl font-bold">Access Denied</h1>
-                <p className="mt-2 text-muted-foreground">You do not have permission to view this page.</p>
+                <p className="mt-2 text-muted-foreground">You do not have permission to view this page. Redirecting...</p>
             </div>
         );
     }
