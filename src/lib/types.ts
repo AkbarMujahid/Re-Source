@@ -35,7 +35,6 @@ export type Report = {
 
 export type ChatMessage = {
     id: string;
-    listingId: string;
     senderId: string;
     senderName: string;
     senderAvatar: string;

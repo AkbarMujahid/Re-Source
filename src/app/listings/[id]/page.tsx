@@ -35,7 +35,7 @@ function ChatArea({ listingId }: { listingId: string }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const messagesQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !listingId) return null;
     return query(collection(firestore, 'listings', listingId, 'messages'), orderBy('timestamp', 'asc'));
   }, [firestore, listingId]);
 
@@ -51,7 +51,6 @@ function ChatArea({ listingId }: { listingId: string }) {
 
     const messagesCollection = collection(firestore, 'listings', listingId, 'messages');
     const messageData = {
-      listingId,
       senderId: user.uid,
       senderName: user.displayName || 'Anonymous',
       senderAvatar: user.photoURL || '',
@@ -60,7 +59,7 @@ function ChatArea({ listingId }: { listingId: string }) {
     };
 
     try {
-      addDoc(messagesCollection, messageData);
+      await addDoc(messagesCollection, messageData);
       setNewMessage('');
     } catch (error) {
       console.error("Error sending message:", error);
@@ -112,6 +111,12 @@ function ChatArea({ listingId }: { listingId: string }) {
                 </div>
                 <p className="text-sm">{message.text}</p>
               </div>
+               {message.senderId === user?.uid && (
+                 <Avatar className="h-8 w-8 border">
+                    <AvatarImage src={message.senderAvatar} />
+                    <AvatarFallback>{message.senderName?.charAt(0)}</AvatarFallback>
+                </Avatar>
+              )}
             </div>
           ))
         )}

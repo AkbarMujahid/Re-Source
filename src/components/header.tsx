@@ -17,7 +17,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings, List } from 'lucide-react';
+import { Menu, Search, Heart, PlusCircle, User, LogOut, Settings, List } from 'lucide-react';
 import { Logo } from './logo';
 import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
