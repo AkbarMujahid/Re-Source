@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -68,16 +69,14 @@ export default function Header() {
           
           {user && (
              <>
-              <Link href="/wishlist">
-                <Button variant="ghost" size="icon">
-                  <Heart className="h-5 w-5" />
-                  <span className="sr-only">Wishlist</span>
+              <Link href="/wishlist" passHref>
+                <Button variant="ghost" size="icon" asChild>
+                    <a><Heart className="h-5 w-5" /><span className="sr-only">Wishlist</span></a>
                 </Button>
               </Link>
-              <Link href="/chat">
-                <Button variant="ghost" size="icon">
-                  <MessageCircle className="h-5 w-5" />
-                  <span className="sr-only">Chat</span>
+              <Link href="/chat" passHref>
+                <Button variant="ghost" size="icon" asChild>
+                    <a><MessageCircle className="h-5 w-5" /><span className="sr-only">Chat</span></a>
                 </Button>
               </Link>
             </>
@@ -85,7 +84,7 @@ export default function Header() {
 
           {user ? (
             <>
-              <Link href="/sell">
+              <Link href="/sell" passHref>
                 <Button className="hidden sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/90">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Sell

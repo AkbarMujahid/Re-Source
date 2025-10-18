@@ -1,3 +1,4 @@
+
 'use client';
 import { useUser, useCollection, useDoc } from '@/firebase';
 import { collection, doc, query, orderBy, addDoc, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
@@ -69,7 +70,7 @@ export default function ConversationPage({ params }: { params: { conversationId:
                 });
             }
         }
-    }, [conversation, firestore, user, isUserLoading, isConversationLoading, router]);
+    }, [conversation, firestore, user, isUserLoading, isConversationLoading, router, params.conversationId]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,7 +103,7 @@ export default function ConversationPage({ params }: { params: { conversationId:
     const isLoading = isUserLoading || isConversationLoading || areMessagesLoading || !headerData;
 
     return (
-        <div className="h-full flex flex-col bg-background">
+        <div className="h-[calc(100vh-4rem)] flex flex-col bg-background">
             <header className="sticky top-16 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-10">
                 <div className="container mx-auto px-4 h-16 flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => router.push('/chat')}>
@@ -116,10 +117,10 @@ export default function ConversationPage({ params }: { params: { conversationId:
                     ) : (
                         <>
                             <Avatar className="h-10 w-10 border">
-                                <AvatarImage src={headerData.otherUserAvatar} />
-                                <AvatarFallback>{headerData.otherUserName?.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={headerData?.otherUserAvatar} />
+                                <AvatarFallback>{headerData?.otherUserName?.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <h2 className="text-lg font-bold">{headerData.otherUserName}</h2>
+                            <h2 className="text-lg font-bold">{headerData?.otherUserName}</h2>
                         </>
                     )}
                 </div>

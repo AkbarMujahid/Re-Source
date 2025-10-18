@@ -1,3 +1,4 @@
+
 export type Listing = {
   id: string;
   userId: string;

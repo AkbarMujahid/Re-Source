@@ -1,3 +1,4 @@
+
 'use client';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { useDoc, useUser, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { useDoc, useUser } from '@/firebase';
+import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -51,20 +52,25 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       return;
     }
     
-    // Ensure the wishlist document exists before trying to update it
     const wishlistSnap = await getDoc(wishlistRef);
-    if (!wishlistSnap.exists()) {
-        await setDoc(wishlistRef, { userId: user.uid, listingIds: [] });
-    }
-  
-    if (isInWishlist) {
-      updateDocumentNonBlocking(wishlistRef, { listingIds: arrayRemove(params.id) });
-      toast({ title: 'Removed from wishlist.' });
-    } else {
-      updateDocumentNonBlocking(wishlistRef, {
-        listingIds: arrayUnion(params.id),
-      });
-      toast({ title: 'Added to wishlist!' });
+    
+    try {
+      if (!wishlistSnap.exists()) {
+          await setDoc(wishlistRef, { userId: user.uid, listingIds: [] });
+      }
+    
+      if (isInWishlist) {
+        await updateDoc(wishlistRef, { listingIds: arrayRemove(params.id) });
+        toast({ title: 'Removed from wishlist.' });
+      } else {
+        await updateDoc(wishlistRef, {
+          listingIds: arrayUnion(params.id),
+        });
+        toast({ title: 'Added to wishlist!' });
+      }
+    } catch (error) {
+        console.error("Error toggling wishlist:", error);
+        toast({ variant: "destructive", title: "Could not update wishlist." });
     }
   };
 

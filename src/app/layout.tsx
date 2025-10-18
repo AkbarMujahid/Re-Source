@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { PT_Sans } from 'next/font/google';
 import './globals.css';
@@ -33,15 +34,14 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
-      <body className={cn('font-body antialiased flex flex-col h-screen', ptSans.variable)}>
+      <body className={cn('font-body antialiased flex flex-col min-h-screen', ptSans.variable)}>
         <FirebaseClientProvider>
           <Header />
           <main className="flex-grow flex flex-col">{children}</main>
+          <Footer />
           <Toaster />
         </FirebaseClientProvider>
       </body>
     </html>
   );
 }
-
-    
