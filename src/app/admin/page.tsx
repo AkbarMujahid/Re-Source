@@ -2,7 +2,7 @@
 import { useUser } from '@/firebase/provider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
-import { AlertCircle, Users, Package, FileText, DollarSign, BarChart } from 'lucide-react';
+import { AlertCircle, Users, Package, FileText, DollarSign } from 'lucide-react';
 import { useCollection } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import type { Listing, UserProfile, Report } from '@/lib/types';
 
 const ADMIN_UID = 'xqBCK8gcsgQGfVFFan33QsQAqlC3';
 
@@ -20,13 +21,13 @@ export default function AdminPage() {
   const router = useRouter();
 
   const usersCollection = useMemo(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const { data: users, isLoading: areUsersLoading } = useCollection(usersCollection);
+  const { data: users, isLoading: areUsersLoading } = useCollection<UserProfile>(usersCollection);
 
   const listingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
-  const { data: listings, isLoading: areListingsLoading } = useCollection(listingsCollection);
+  const { data: listings, isLoading: areListingsLoading } = useCollection<Listing>(listingsCollection);
 
   const reportsCollection = useMemo(() => firestore ? collection(firestore, 'reports') : null, [firestore]);
-  const { data: reports, isLoading: areReportsLoading } = useCollection(reportsCollection);
+  const { data: reports, isLoading: areReportsLoading } = useCollection<Report>(reportsCollection);
 
   useEffect(() => {
     if (!isUserLoading && user?.uid !== ADMIN_UID) {
@@ -37,7 +38,7 @@ export default function AdminPage() {
   const totalUsers = users?.length || 0;
   const totalListings = listings?.length || 0;
   const totalReports = reports?.length || 0;
-  const totalRevenue = listings?.reduce((sum, item) => sum + item.price, 0) || 0;
+  const totalRevenue = listings?.reduce((sum, item) => sum + (item.price || 0), 0) || 0;
 
   const listingsPerCategory = useMemo(() => {
     if (!listings) return [];
@@ -145,10 +146,10 @@ export default function AdminPage() {
                 </TableHeader>
                 <TableBody>
                   {users?.map(user => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.uid}>
                       <TableCell className="font-medium flex items-center gap-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.photoURL} />
+                          <AvatarImage src={user.photoURL ?? undefined} />
                           <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         {user.displayName}
