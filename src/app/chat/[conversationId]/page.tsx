@@ -1,6 +1,6 @@
 'use client';
 import { useUser, useCollection, useDoc } from '@/firebase';
-import { collection, doc, query, orderBy, addDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, doc, query, orderBy, addDoc, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,13 +9,19 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChatMessage, Conversation } from '@/lib/types';
+import type { ChatMessage, Conversation, UserProfile } from '@/lib/types';
+
+interface ConversationHeader {
+    otherUserName: string;
+    otherUserAvatar: string;
+}
 
 export default function ConversationPage({ params }: { params: { conversationId: string } }) {
     const { user, firestore, isUserLoading } = useUser();
     const router = useRouter();
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [headerData, setHeaderData] = useState<ConversationHeader | null>(null);
 
     const conversationRef = useMemo(() => {
         if (!firestore) return null;
@@ -34,6 +40,24 @@ export default function ConversationPage({ params }: { params: { conversationId:
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    useEffect(() => {
+        if (conversation && firestore && user) {
+            const otherUserId = conversation.participants.find(p => p !== user.uid);
+            if (otherUserId) {
+                const userDocRef = doc(firestore, 'users', otherUserId);
+                getDoc(userDocRef).then(docSnap => {
+                    if (docSnap.exists()) {
+                        const userData = docSnap.data() as UserProfile;
+                        setHeaderData({
+                            otherUserName: userData.displayName || 'User',
+                            otherUserAvatar: userData.photoURL || '',
+                        });
+                    }
+                });
+            }
+        }
+    }, [conversation, firestore, user]);
 
     if (!isUserLoading && user && !isConversationLoading && conversation && !conversation.participants.includes(user.uid)) {
         // User is not part of this conversation
@@ -54,7 +78,6 @@ export default function ConversationPage({ params }: { params: { conversationId:
         try {
             await addDoc(messagesCollection, messageData);
             
-            // Also update the parent conversation document
             await updateDoc(conversationRef, {
                 lastMessage: newMessage,
                 lastMessageTimestamp: serverTimestamp(),
@@ -67,7 +90,7 @@ export default function ConversationPage({ params }: { params: { conversationId:
         }
     };
     
-    const isLoading = isUserLoading || isConversationLoading || areMessagesLoading;
+    const isLoading = isUserLoading || isConversationLoading || areMessagesLoading || !headerData;
 
     return (
         <div className="h-full flex flex-col">
@@ -81,13 +104,13 @@ export default function ConversationPage({ params }: { params: { conversationId:
                             <Skeleton className="h-10 w-10 rounded-full" />
                             <Skeleton className="h-6 w-32" />
                         </>
-                    ) : conversation && (
+                    ) : (
                         <>
                             <Avatar className="h-10 w-10 border">
-                                <AvatarImage src={conversation.otherUserAvatar} />
-                                <AvatarFallback>{conversation.otherUserName?.charAt(0)}</AvatarFallback>
+                                <AvatarImage src={headerData.otherUserAvatar} />
+                                <AvatarFallback>{headerData.otherUserName?.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <h2 className="text-lg font-bold">{conversation.otherUserName}</h2>
+                            <h2 className="text-lg font-bold">{headerData.otherUserName}</h2>
                         </>
                     )}
                 </div>
@@ -144,4 +167,3 @@ export default function ConversationPage({ params }: { params: { conversationId:
         </div>
     );
 }
-    

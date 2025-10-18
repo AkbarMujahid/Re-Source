@@ -14,8 +14,8 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { useDoc, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, arrayUnion, arrayRemove, setDoc, getDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { useDoc, useUser, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -50,15 +50,20 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       router.push('/login');
       return;
     }
+    
+    // Ensure the wishlist document exists before trying to update it
+    const wishlistSnap = await getDoc(wishlistRef);
+    if (!wishlistSnap.exists()) {
+        await setDocumentNonBlocking(wishlistRef, { userId: user.uid, listingIds: [] });
+    }
   
     if (isInWishlist) {
       updateDocumentNonBlocking(wishlistRef, { listingIds: arrayRemove(params.id) });
       toast({ title: 'Removed from wishlist.' });
     } else {
       updateDocumentNonBlocking(wishlistRef, {
-        userId: user.uid,
         listingIds: arrayUnion(params.id),
-      }, { merge: true });
+      });
       toast({ title: 'Added to wishlist!' });
     }
   };
@@ -82,22 +87,11 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
         const conversationSnap = await getDoc(conversationRef);
         
         if (!conversationSnap.exists()) {
-            const sellerDoc = await getDoc(doc(firestore, 'users', resource.userId));
-            const sellerData = sellerDoc.data();
-
             await setDoc(conversationRef, {
+                id: conversationId,
                 participants: [user.uid, resource.userId],
                 lastMessage: `Conversation about '${resource.title}' started.`,
                 lastMessageTimestamp: serverTimestamp(),
-                // Denormalize other user's data for easy access
-                [user.uid]: { // My info
-                    displayName: user.displayName,
-                    photoURL: user.photoURL,
-                },
-                [resource.userId]: { // Seller's info
-                    displayName: sellerData?.displayName,
-                    photoURL: sellerData?.photoURL,
-                }
             });
         }
         
@@ -363,5 +357,3 @@ function ListingDetailSkeleton() {
     </div>
   );
 }
-
-    

@@ -35,9 +35,6 @@ export type Report = {
 export type Conversation = {
     id: string;
     participants: string[];
-    // We'll also store denormalized data about the other participant for easy display
-    otherUserName: string;
-    otherUserAvatar: string;
     lastMessage: string;
     lastMessageTimestamp: any; // Firestore ServerTimestamp
 };
@@ -49,4 +46,8 @@ export type ChatMessage = {
     timestamp: any; // Firestore ServerTimestamp
 };
 
-    
+export type Wishlist = {
+    id: string;
+    userId: string;
+    listingIds: string[];
+};

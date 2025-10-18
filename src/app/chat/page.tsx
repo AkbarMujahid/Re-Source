@@ -1,19 +1,25 @@
 'use client';
 import { useUser, useCollection } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
-import { useMemo } from 'react';
+import { collection, query, where, orderBy, doc, getDoc } from 'firebase/firestore';
+import { useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageSquare, Frown } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import type { Conversation } from '@/lib/types';
+import type { Conversation, UserProfile } from '@/lib/types';
+
+interface PopulatedConversation extends Conversation {
+    otherUserName: string;
+    otherUserAvatar: string;
+}
 
 export default function ChatPage() {
     const { user, firestore, isUserLoading } = useUser();
     const router = useRouter();
+    const [populatedConversations, setPopulatedConversations] = useState<PopulatedConversation[]>([]);
 
     const conversationsQuery = useMemo(() => {
         if (!user || !firestore) return null;
@@ -24,9 +30,37 @@ export default function ChatPage() {
         );
     }, [user, firestore]);
 
-    const { data: conversations, isLoading } = useCollection<Conversation>(conversationsQuery);
+    const { data: conversations, isLoading: areConversationsLoading } = useCollection<Conversation>(conversationsQuery);
 
-    if (isUserLoading || isLoading) {
+    useEffect(() => {
+        if (conversations && firestore && user) {
+            const fetchParticipantDetails = async () => {
+                const convosWithDetails = await Promise.all(
+                    conversations.map(async (convo) => {
+                        const otherUserId = convo.participants.find(p => p !== user.uid);
+                        if (!otherUserId) return { ...convo, otherUserName: 'Unknown User', otherUserAvatar: '' };
+                        
+                        const userDocRef = doc(firestore, 'users', otherUserId);
+                        const userDocSnap = await getDoc(userDocRef);
+                        
+                        if (userDocSnap.exists()) {
+                            const userData = userDocSnap.data() as UserProfile;
+                            return {
+                                ...convo,
+                                otherUserName: userData.displayName || 'User',
+                                otherUserAvatar: userData.photoURL || '',
+                            };
+                        }
+                        return { ...convo, otherUserName: 'Unknown User', otherUserAvatar: '' };
+                    })
+                );
+                setPopulatedConversations(convosWithDetails);
+            };
+            fetchParticipantDetails();
+        }
+    }, [conversations, firestore, user]);
+
+    if (isUserLoading || areConversationsLoading) {
         return <ChatSkeleton />;
     }
 
@@ -44,8 +78,8 @@ export default function ChatPage() {
             
             <Card>
                 <div className="divide-y">
-                    {conversations && conversations.length > 0 ? (
-                        conversations.map((convo) => (
+                    {populatedConversations.length > 0 ? (
+                        populatedConversations.map((convo) => (
                             <Link href={`/chat/${convo.id}`} key={convo.id} className="block hover:bg-muted/50 transition-colors">
                                 <div className="flex items-center p-4 gap-4">
                                     <Avatar className="h-12 w-12 border">
@@ -79,7 +113,6 @@ export default function ChatPage() {
     );
 }
 
-
 function ChatSkeleton() {
     return (
         <div className="container mx-auto px-4 py-8 md:py-12 max-w-4xl">
@@ -103,5 +136,3 @@ function ChatSkeleton() {
         </div>
     );
 }
-
-    

@@ -67,12 +67,20 @@ export default function Header() {
           </Button>
           
           {user && (
-            <Link href="/wishlist">
-              <Button variant="ghost" size="icon">
-                <Heart className="h-5 w-5" />
-                <span className="sr-only">Wishlist</span>
-              </Button>
-            </Link>
+             <>
+              <Link href="/wishlist">
+                <Button variant="ghost" size="icon">
+                  <Heart className="h-5 w-5" />
+                  <span className="sr-only">Wishlist</span>
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button variant="ghost" size="icon">
+                  <MessageCircle className="h-5 w-5" />
+                  <span className="sr-only">Chat</span>
+                </Button>
+              </Link>
+            </>
           )}
 
           {user ? (
