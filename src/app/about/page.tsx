@@ -12,7 +12,7 @@ const teamMembers = [
     role: "Founder, CEO, Lead Developer & UX/UI Designer",
     avatar: "/avatars/01.png",
     fallback: "AM",
-    imageUrl: "https://picsum.photos/seed/team1/500/500"
+    imageUrl: "/avatars/01.png"
   },
 ];
 
