@@ -14,8 +14,6 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Bar, BarChart as RechartsBarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { Listing, UserProfile, Report } from '@/lib/types';
 
-const ADMIN_UID = 'xqBCK8gcsgQGfVFFan33QsQAqlC3';
-
 export default function AdminPage() {
   const { user, isUserLoading, firestore } = useUser();
   const router = useRouter();
@@ -30,8 +28,8 @@ export default function AdminPage() {
   const { data: reports, isLoading: areReportsLoading } = useCollection<Report>(reportsCollection);
 
   useEffect(() => {
-    if (!isUserLoading && user?.uid !== ADMIN_UID) {
-      router.replace('/');
+    if (!isUserLoading && !user) {
+      router.replace('/login');
     }
   }, [user, isUserLoading, router]);
 
@@ -53,14 +51,10 @@ export default function AdminPage() {
     value: { label: 'Listings' },
   };
 
-  // If the user is not the admin, the useEffect will redirect them.
-  // We can render the panel structure with skeletons while data is loading.
-  if (user?.uid !== ADMIN_UID && !isUserLoading) {
-    // This will be shown briefly before redirection.
+  if (isUserLoading) {
      return (
       <div className="container text-center py-12">
-        <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-        <p className="mt-4 text-muted-foreground">Access Denied. Redirecting...</p>
+        <p className="mt-4 text-muted-foreground">Loading Admin Panel...</p>
       </div>
     );
   }

@@ -31,8 +31,6 @@ const navLinks = [
   { href: '/contact', label: 'Contact' },
 ];
 
-const ADMIN_UID = 'xqBCK8gcsgQGfVFFan33QsQAqlC3';
-
 export default function Header() {
   const { user, auth, firestore } = useUser();
   const router = useRouter();
@@ -40,8 +38,6 @@ export default function Header() {
   const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userData } = useDoc(userDocRef);
   
-  const isAdmin = useMemo(() => user?.uid === ADMIN_UID, [user]);
-
   const handleLogout = async () => {
     if (!auth) return;
     await signOut(auth);
@@ -109,12 +105,10 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                   {isAdmin && (
-                    <DropdownMenuItem onClick={() => router.push('/admin')}>
-                      <Shield className="mr-2 h-4 w-4" />
-                      <span>Admin Panel</span>
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuItem onClick={() => router.push('/admin')}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Admin Panel</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
