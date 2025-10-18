@@ -1,73 +1,26 @@
-/**
- * @fileoverview Firestore Security Rules for Re-Source application.
- *
- * Core Philosophy:
- * This ruleset prioritizes secure user access based on ownership and role-based authorization.
- * It ensures that users can only access their own data and that administrative actions are restricted to authorized personnel.
- *
- * Data Structure:
- * - Users: Stored in `/users/{userId}`, accessible only by the user themselves.
- * - Listings: Stored in `/listings/{listingId}`, with open read access but restricted write access based on ownership (`userId` field).
- * - Conversations: Stored in `/conversations/{conversationId}`, accessible only to participating users.
- * - Chat Messages: Stored in `/conversations/{conversationId}/messages/{messageId}`, accessible only to participants of the parent conversation.
- * - Wishlists: Stored in `/users/{userId}/wishlists/{wishlistId}`, accessible only by the owner.
- * - Reports: Stored in `/reports/{reportId}`, writeable by any signed-in user, with the assumption of admin review.
- *
- * Key Security Decisions:
- * - User listing is disabled for privacy.
- * - Public read access is granted to listings, but writes are controlled by the owner.
- * - Conversations and messages are restricted to participants only.
- * - Reports are open for creation by signed-in users to facilitate content moderation.
- *
- * Denormalization for Authorization:
- * - Listings include a `userId` field to enable ownership checks without additional reads.
- * - Conversations include `participants` array to allow quick rule-based access.
- *
- * Structural Segregation:
- * - Wishlists are stored in a user subcollection to ensure private data and simplify owner-based access rules.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Defines the helper function to check if the user is signed in
-     */
+    // -------------------- Helper Functions --------------------
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Defines the helper function to check if the user is the owner of the resource.
-     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * @description Defines the helper function to check if the user is the existing owner of the resource.
-     * Checks both ownership and existence of the document.
-     */
     function isExistingOwner(userId) {
-      return isSignedIn() && isOwner(userId) && resource != null;
+      return isOwner(userId) && resource != null;
     }
 
-    /**
-     * @description Defines the helper function to check if the user is a participant in a conversation.
-     */
     function isParticipant(conversationId) {
-      return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+      return isSignedIn() &&
+        request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
-    /**
-     * @description Rules for user profiles.
-     * @path /users/{userId}
-     * @allow (create) User 'test_user' can create their own profile.
-     * @allow (get, update, delete) User 'test_user' can get, update, and delete their own profile.
-     * @deny (create) User 'hacker' cannot create a profile with someone elses userId 'test_user'.
-     * @deny (get, update, delete) User 'hacker' cannot get, update, and delete the 'test_user' profile.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
-     */
+    // -------------------- USERS --------------------
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
@@ -76,16 +29,7 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Rules for academic resource listings.
-     * @path /listings/{listingId}
-     * @allow (get, list) Any user can get or list the listing.
-     * @allow (create) User 'test_user' can create a listing with their userId.
-     * @allow (update, delete) User 'test_user' can update or delete a listing with their userId.
-     * @deny (create) User 'hacker' cannot create a listing with someone elses userId 'test_user'.
-     * @deny (update, delete) User 'hacker' cannot update or delete the listing from 'test_user'.
-     * @principle Enforces document ownership for writes but allows public reads.
-     */
+    // -------------------- LISTINGS --------------------
     match /listings/{listingId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
@@ -93,39 +37,16 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
     }
 
-    /**
-     * @description Rules for chat conversations.
-     * @path /conversations/{conversationId}
-     * @allow (get) A participant can get a conversation.
-     * @allow (list) Fails due to error in the app where any signed in user can list ALL conversations.
-     * @allow (create) Any signed in user can create a conversation with valid participants.
-     * @allow (update) A participant can update a conversation.
-     * @allow (delete) A participant can delete a conversation.
-     * @deny (get) User 'hacker' cannot get a conversation they are not a participant in.
-     * @deny (create) User 'hacker' cannot create a conversation if they are not authenticated.
-     * @deny (update) User 'hacker' cannot update a conversation they are not a participant in.
-     * @deny (delete) User 'hacker' cannot delete a conversation they are not a participant in.
-     * @principle Restricts access to conversations to participating users only.
-     */
+    // -------------------- CONVERSATIONS --------------------
     match /conversations/{conversationId} {
       allow get: if isParticipant(conversationId);
-      allow list: if true;
-      allow create: if isSignedIn() && request.resource.data.participants is list;
+      allow list: if isSignedIn() && exists(/databases/$(database)/documents/conversations/$(conversationId)) && isParticipant(conversationId);
+      allow create: if isSignedIn() && request.resource.data.participants is list && request.auth.uid in request.resource.data.participants;
       allow update: if isParticipant(conversationId);
       allow delete: if isParticipant(conversationId);
     }
 
-    /**
-     * @description Rules for chat messages within a conversation.
-     * @path /conversations/{conversationId}/messages/{messageId}
-     * @allow (get, list) A participant can get or list messages in a conversation.
-     * @allow (create) A participant can create a message in a conversation.
-     * @allow (update, delete) No one can update or delete a message.
-     * @deny (get, list) User 'hacker' cannot get or list messages in a conversation they are not a participant in.
-     * @deny (create) User 'hacker' cannot create a message in a conversation they are not a participant in.
-     * @deny (update, delete) Any user cannot update or delete a message.
-     * @principle Restricts access to messages within a conversation to participating users only.
-     */
+    // -------------------- MESSAGES --------------------
     match /conversations/{conversationId}/messages/{messageId} {
       allow get, list: if isParticipant(conversationId);
       allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid;
@@ -133,13 +54,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    /**
-     * @description Rules for user wishlists.
-     * @path /users/{userId}/wishlists/{wishlistId}
-     * @allow (get, list, create, update, delete) User 'test_user' can get, list, create, update, and delete their own wishlist.
-     * @deny (get, list, create, update, delete) User 'hacker' cannot get, list, create, update, and delete the 'test_user' wishlist.
-     * @principle Enforces document ownership for all operations.
-     */
+    // -------------------- WISHLISTS --------------------
     match /users/{userId}/wishlists/{wishlistId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
@@ -147,17 +62,7 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
-    /**
-     * @description Rules for user-submitted reports.
-     * @path /reports/{reportId}
-     * @allow (get) A signed in user can get a report.
-     * @allow (list) No one can list reports.
-     * @allow (create) A signed in user can create a report.
-     * @allow (update, delete) No one can update or delete reports.
-     * @deny (create) User 'hacker' cannot create a report if they are not authenticated.
-     * @deny (update, delete) Any user cannot update or delete a report.
-     * @principle Allows creating reports for moderation purposes, but restricts modifications.
-     */
+    // -------------------- REPORTS --------------------
     match /reports/{reportId} {
       allow get: if isSignedIn();
       allow list: if false;
