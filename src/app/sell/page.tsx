@@ -83,7 +83,7 @@ export default function SellPage() {
                 </div>
                  <div className="grid gap-2">
                     <Label htmlFor="price" className="font-bold">Price (₹)</Label>
-                    <Input id="price" type="number" placeholder="e.g., 45.00" />
+                    <Input id="price" type="number" placeholder="e.g., 3500.00" />
                 </div>
             </div>
 

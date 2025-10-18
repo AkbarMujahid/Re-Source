@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Tag, Book, Building, Calendar, DollarSign, Lightbulb } from 'lucide-react';
+import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import {
   Carousel,
@@ -22,7 +22,7 @@ const resource = {
   category: 'Textbooks',
   department: 'Mathematics',
   semester: '3',
-  price: 45.0,
+  price: 3500,
   imageUrl: 'https://picsum.photos/seed/1/1200/800',
   imageHint: 'calculus textbook',
   seller: {
@@ -33,10 +33,10 @@ const resource = {
 };
 
 const recommendedResources = [
-    { id: '2', title: 'Calculus II Notes', price: 10.0, imageUrl: 'https://picsum.photos/seed/rec1/600/400', imageHint: 'math notes'},
-    { id: '3', title: 'Linear Algebra Textbook', price: 50.0, imageUrl: 'https://picsum.photos/seed/rec2/600/400', imageHint: 'algebra book'},
-    { id: '4', title: 'Differential Equations Practice Problems', price: 20.0, imageUrl: 'https://picsum.photos/seed/rec3/600/400', imageHint: 'equations sheet'},
-    { id: '5', title: 'Statistics for Engineers', price: 35.0, imageUrl: 'https://picsum.photos/seed/rec4/600/400', imageHint: 'statistics chart'},
+    { id: '2', title: 'Calculus II Notes', price: 800, imageUrl: 'https://picsum.photos/seed/rec1/600/400', imageHint: 'math notes'},
+    { id: '3', title: 'Linear Algebra Textbook', price: 4000, imageUrl: 'https://picsum.photos/seed/rec2/600/400', imageHint: 'algebra book'},
+    { id: '4', title: 'Differential Equations Practice Problems', price: 1600, imageUrl: 'https://picsum.photos/seed/rec3/600/400', imageHint: 'equations sheet'},
+    { id: '5', title: 'Statistics for Engineers', price: 2800, imageUrl: 'https://picsum.photos/seed/rec4/600/400', imageHint: 'statistics chart'},
 ];
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
@@ -63,7 +63,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
           <div className="sticky top-24">
             <h1 className="text-3xl lg:text-4xl font-bold font-headline mb-2">{resource.title}</h1>
             <div className="flex items-center text-3xl font-bold text-primary mb-4">
-              <DollarSign className="w-7 h-7 mr-2" />
+              <IndianRupee className="w-7 h-7 mr-2" />
               {resource.price.toFixed(2)}
             </div>
             
@@ -165,7 +165,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                         </Link>
                         <div className="flex justify-between items-center mt-2">
                             <div className="flex items-center text-lg font-bold text-primary">
-                                <DollarSign className="w-4 h-4 mr-1" />
+                                <IndianRupee className="w-4 h-4 mr-1" />
                                 {item.price.toFixed(2)}
                             </div>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 rounded-full">

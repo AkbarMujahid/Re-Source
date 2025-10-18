@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, DollarSign } from 'lucide-react';
+import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 
@@ -25,7 +25,7 @@ const resources = [
     category: 'Textbooks',
     department: 'Mathematics',
     semester: '3',
-    price: 45.0,
+    price: 3500,
     imageUrl: 'https://picsum.photos/seed/1/600/400',
     imageHint: 'calculus textbook',
     seller: 'Jane Doe',
@@ -37,7 +37,7 @@ const resources = [
     category: 'Study Aids',
     department: 'Chemistry',
     semester: '2',
-    price: 25.0,
+    price: 2000,
     imageUrl: 'https://picsum.photos/seed/2/600/400',
     imageHint: 'chemistry kit',
     seller: 'John Smith',
@@ -48,7 +48,7 @@ const resources = [
     category: 'Notes',
     department: 'Computer Science',
     semester: '4',
-    price: 15.0,
+    price: 1200,
     imageUrl: 'https://picsum.photos/seed/3/600/400',
     imageHint: 'programming notes',
     seller: 'Emily White',
@@ -59,7 +59,7 @@ const resources = [
     category: 'Textbooks',
     department: 'Psychology',
     semester: '1',
-    price: 30.0,
+    price: 2400,
     imageUrl: 'https://picsum.photos/seed/4/600/400',
     imageHint: 'psychology book',
     seller: 'Michael Brown',
@@ -70,7 +70,7 @@ const resources = [
     category: 'Equipment',
     department: 'Electronics',
     semester: '3',
-    price: 75.0,
+    price: 6000,
     imageUrl: 'https://picsum.photos/seed/5/600/400',
     imageHint: 'circuit board',
     seller: 'Sarah Green',
@@ -82,7 +82,7 @@ const resources = [
     category: 'Textbooks',
     department: 'Literature',
     semester: '5',
-    price: 20.0,
+    price: 1600,
     imageUrl: 'https://picsum.photos/seed/6/600/400',
     imageHint: 'literature book',
     seller: 'David Black',
@@ -93,7 +93,7 @@ const resources = [
     category: 'Equipment',
     department: 'Biology',
     semester: '2',
-    price: 18.0,
+    price: 1440,
     imageUrl: 'https://picsum.photos/seed/7/600/400',
     imageHint: 'lab coat',
     seller: 'Laura Blue',
@@ -104,7 +104,7 @@ const resources = [
     category: 'Notes',
     department: 'Computer Science',
     semester: '6',
-    price: 22.0,
+    price: 1760,
     imageUrl: 'https://picsum.photos/seed/8/600/400',
     imageHint: 'python code',
     seller: 'Chris Red',
@@ -220,7 +220,7 @@ export default function HomePage() {
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
                   <div className="flex items-center text-xl font-bold text-primary">
-                     <DollarSign className="w-5 h-5 mr-1" />
+                     <IndianRupee className="w-5 h-5 mr-1" />
                      {resource.price.toFixed(2)}
                   </div>
                    <div className="flex items-center text-sm text-muted-foreground gap-1">

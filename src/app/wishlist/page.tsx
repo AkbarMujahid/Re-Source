@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, DollarSign, BookOpen } from 'lucide-react';
+import { X, IndianRupee, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 
 const wishlistItems = [
@@ -17,7 +17,7 @@ const wishlistItems = [
     title: 'Organic Chemistry Model Kit',
     category: 'Study Aids',
     department: 'Chemistry',
-    price: 25.0,
+    price: 2000,
     imageUrl: 'https://picsum.photos/seed/2/600/400',
     imageHint: 'chemistry kit',
   },
@@ -26,7 +26,7 @@ const wishlistItems = [
     title: 'Digital Logic Design Board',
     category: 'Equipment',
     department: 'Electronics',
-    price: 75.0,
+    price: 6000,
     imageUrl: 'https://picsum.photos/seed/5/600/400',
     imageHint: 'circuit board',
   },
@@ -73,7 +73,7 @@ export default function WishlistPage() {
               </CardContent>
               <CardFooter className="flex justify-between items-center">
                 <div className="flex items-center text-xl font-bold text-primary">
-                  <DollarSign className="w-5 h-5 mr-1" />
+                  <IndianRupee className="w-5 h-5 mr-1" />
                   {resource.price.toFixed(2)}
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground gap-1">
