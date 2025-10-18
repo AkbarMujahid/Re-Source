@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import {
   Carousel,
@@ -22,27 +22,12 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { suggestResourceRecommendations } from '@/ai/flows/suggest-resource-recommendations';
-import { generateModerationReport } from '@/ai/flows/generate-moderation-report';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
   const { user, firestore } = useUser();
   const { toast } = useToast();
   const router = useRouter();
-  const [isReporting, setIsReporting] = useState(false);
-  const [reportReason, setReportReason] = useState('');
   const [aiRecommendations, setAiRecommendations] = useState<any[] | null>(null);
   const [areRecsLoading, setAreRecsLoading] = useState(false);
 
@@ -75,51 +60,6 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
         listingIds: arrayUnion(params.id),
       }, { merge: true });
       toast({ title: 'Added to wishlist!' });
-    }
-  };
-
-  const handleReportListing = async () => {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'You must be logged in to report content.' });
-      router.push('/login');
-      return;
-    }
-    if (!resource || !firestore) return;
-
-    setIsReporting(true);
-    try {
-      // 1. Generate AI summary for the report
-      const reportInput = {
-        reports: [{
-          reporterId: user.uid,
-          reportedContentId: resource.id,
-          contentType: 'listing' as 'listing' | 'user',
-          reason: reportReason
-        }]
-      };
-      const { summary } = await generateModerationReport(reportInput);
-
-      // 2. Save the structured report to Firestore
-      const reportsCollection = collection(firestore, 'reports');
-      addDocumentNonBlocking(reportsCollection, {
-        reporterId: user.uid,
-        reportedListingId: resource.id,
-        reportedUserId: resource.userId,
-        reportSummary: summary,
-        reason: reportReason,
-        listingTitle: resource.title,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-      });
-      
-      toast({ title: 'Report submitted', description: 'Thank you for helping keep our community safe.' });
-      setReportReason(''); // Clear the textarea
-
-    } catch (error: any) {
-      console.error("Error submitting report:", error);
-      toast({ variant: 'destructive', title: 'Error submitting report', description: error.message });
-    } finally {
-      setIsReporting(false);
     }
   };
   
@@ -225,40 +165,6 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                 </div>
               </CardHeader>
             </Card>
-
-             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="link" className="text-xs text-muted-foreground pl-0 mt-2">
-                   <ShieldAlert className="mr-1 h-4 w-4" /> Report this listing
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Report this listing</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Describe why you are reporting this listing. Your report will be sent to administrators for review.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-reason">Reason</Label>
-                    <Textarea 
-                      id="report-reason" 
-                      placeholder="e.g., This is inappropriate content." 
-                      value={reportReason} 
-                      onChange={(e) => setReportReason(e.target.value)}
-                      disabled={isReporting}
-                    />
-                  </div>
-                </div>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleReportListing} disabled={isReporting || !reportReason}>
-                    {isReporting ? 'Submitting...' : 'Submit Report'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
         </div>
       </div>

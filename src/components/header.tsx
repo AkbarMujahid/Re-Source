@@ -16,7 +16,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Menu, Search, Heart, MessageCircle, PlusCircle, LayoutDashboard, User, LogOut, Settings } from 'lucide-react';
+import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings } from 'lucide-react';
 import { Logo } from './logo';
 import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -37,7 +37,6 @@ export default function Header() {
 
   const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userData } = useDoc(userDocRef);
-  const isAdmin = userData?.isAdmin;
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -114,12 +113,6 @@ export default function Header() {
                     <MessageCircle className="mr-2 h-4 w-4" />
                     <span>Chat</span>
                   </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => router.push('/admin')}>
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      <span>Admin Panel</span>
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem onClick={() => router.push('/settings')}>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
