@@ -1,13 +1,7 @@
+
 'use client';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Card,
   CardContent,
@@ -15,13 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Heart, Search, ChevronDown, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
+import { Heart, BookOpen, Microscope, Code, Palette, IndianRupee } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, limit, orderBy, query } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { useUser } from '@/firebase/provider';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const categoryIcons = {
@@ -34,7 +29,10 @@ const categoryIcons = {
 
 export default function HomePage() {
   const { firestore } = useUser();
-  const listingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
+  const listingsCollection = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'listings'), orderBy('createdAt', 'desc'), limit(8));
+  }, [firestore]);
   const { data: resources, isLoading } = useCollection(listingsCollection);
   
   return (
@@ -48,69 +46,17 @@ export default function HomePage() {
           <p className="text-lg md:text-xl text-foreground/80 max-w-3xl mx-auto mb-8">
             Re-Source is the easiest way for students at SCE to buy, sell, and exchange academic resources.
           </p>
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-4">
+            <Link href="/buy">
+                <Button size="lg">
+                    Browse & Buy
+                </Button>
+            </Link>
             <Link href="/sell">
               <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
                 Sell Your Resources
               </Button>
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Search and Filter Section */}
-      <section className="bg-background sticky top-0 md:top-16 z-40 shadow-sm py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative w-full flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input placeholder="Search for textbooks, notes, equipment..." className="pl-10" />
-            </div>
-            <div className="flex gap-2 w-full md:w-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-1/2 md:w-auto justify-between">
-                    Category <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>Textbooks</DropdownMenuItem>
-                  <DropdownMenuItem>Notes</DropdownMenuItem>
-                  <DropdownMenuItem>Study Aids</DropdownMenuItem>
-                  <DropdownMenuItem>Equipment</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-1/2 md:w-auto justify-between">
-                    Department <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>Mathematics</DropdownMenuItem>
-                  <DropdownMenuItem>Chemistry</DropdownMenuItem>
-                  <DropdownMenuItem>Computer Science</DropdownMenuItem>
-                  <DropdownMenuItem>Psychology</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-full md:w-auto justify-between">
-                    Semester <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>1</DropdownMenuItem>
-                  <DropdownMenuItem>2</DropdownMenuItem>
-                  <DropdownMenuItem>3</DropdownMenuItem>
-                  <DropdownMenuItem>4</DropdownMenuItem>
-                  <DropdownMenuItem>5</DropdownMenuItem>
-                  <DropdownMenuItem>6</DropdownMenuItem>
-                  <DropdownMenuItem>7</DropdownMenuItem>
-                  <DropdownMenuItem>8</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
           </div>
         </div>
       </section>
@@ -122,14 +68,16 @@ export default function HomePage() {
           {isLoading && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
               {[...Array(8)].map((_, i) => (
                 <Card key={i} className="overflow-hidden flex flex-col">
-                  <CardHeader className="p-0 relative h-48 bg-muted animate-pulse" />
+                  <CardHeader className="p-0 relative">
+                      <Skeleton className="w-full h-48" />
+                  </CardHeader>
                   <CardContent className="pt-4 flex-grow">
-                    <div className="h-4 bg-muted animate-pulse rounded w-3/4 mb-2"></div>
-                    <div className="h-4 bg-muted animate-pulse rounded w-1/2"></div>
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
                   </CardContent>
                   <CardFooter className="flex justify-between items-center">
-                    <div className="h-6 bg-muted animate-pulse rounded w-1/4"></div>
-                    <div className="h-6 bg-muted animate-pulse rounded w-1/4"></div>
+                    <Skeleton className="h-6 w-1/4" />
+                    <Skeleton className="h-6 w-1/4" />
                   </CardFooter>
                 </Card>
               ))}
@@ -182,9 +130,11 @@ export default function HomePage() {
             ))}
           </div>
            <div className="text-center mt-12">
-            <Button size="lg" variant="outline">
-              Load More
-            </Button>
+            <Link href="/buy">
+                <Button size="lg" variant="outline">
+                    View All Listings
+                </Button>
+            </Link>
           </div>
         </div>
       </section>

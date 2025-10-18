@@ -17,14 +17,16 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Menu, Search, Heart, PlusCircle, User, LogOut, Settings, List } from 'lucide-react';
+import { Menu, Search, Heart, PlusCircle, User, LogOut, Settings, List, ShoppingCart } from 'lucide-react';
 import { Logo } from './logo';
 import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 const navLinks = [
   { href: '/', label: 'Home' },
+  { href: '/buy', label: 'Buy' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -54,7 +56,10 @@ export default function Header() {
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="font-medium text-muted-foreground transition-colors hover:text-primary">
+              <Link key={link.href} href={link.href} className={cn(
+                "font-medium text-muted-foreground transition-colors hover:text-primary",
+                link.href === '/buy' && 'font-bold text-primary'
+              )}>
                 {link.label}
               </Link>
             ))}
