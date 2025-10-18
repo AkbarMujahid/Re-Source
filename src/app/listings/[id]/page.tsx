@@ -14,9 +14,9 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel"
-import { useDoc, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, query, where, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { useMemo, useState } from 'react';
+import { useDoc, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ import { suggestResourceRecommendations } from '@/ai/flows/suggest-resource-reco
 
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
-  const { user, firestore } = useUser();
+  const { user, firestore, isUserLoading } = useUser();
   const { toast } = useToast();
   const router = useRouter();
   const [aiRecommendations, setAiRecommendations] = useState<any[] | null>(null);
@@ -37,7 +37,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   const allListingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
   const { data: allListings } = useCollection(allListingsCollection);
 
-  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
+  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "users", user.uid, "wishlists", user.uid) : null, [firestore, user]);
   const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
 
   const isInWishlist = useMemo(() => {
@@ -55,6 +55,8 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       updateDocumentNonBlocking(wishlistRef, { listingIds: arrayRemove(params.id) });
       toast({ title: 'Removed from wishlist.' });
     } else {
+      // For a document that might not exist, we use set with merge: true
+      // to create it if it's missing, or update it if it exists.
       updateDocumentNonBlocking(wishlistRef, {
         userId: user.uid,
         listingIds: arrayUnion(params.id),
@@ -64,7 +66,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   };
   
   const fetchRecommendations = async () => {
-      if (!resource || !allListings || !user) return;
+      if (!resource || !allListings) return;
       setAreRecsLoading(true);
       try {
         const userActivity = `The user is currently viewing the listing '${resource.title}' in the '${resource.department}' department.`;
@@ -88,12 +90,11 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       }
     };
 
-    // Fetch recommendations when resource data is available
-    useMemo(() => {
-        if (resource && allListings && user && !aiRecommendations) {
+    useEffect(() => {
+        if (resource && allListings && !aiRecommendations && !areRecsLoading) {
             fetchRecommendations();
         }
-    }, [resource, allListings, user, aiRecommendations]);
+    }, [resource, allListings, aiRecommendations, areRecsLoading]);
 
 
   if (isResourceLoading) {
@@ -145,7 +146,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                 <MessageCircle className="mr-2 h-5 w-5" />
                 Contact Seller
               </Button>
-              <Button variant={isInWishlist ? "secondary" : "outline"} size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300" onClick={handleWishlistToggle} disabled={isWishlistLoading}>
+              <Button variant={isInWishlist ? "secondary" : "outline"} size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300" onClick={handleWishlistToggle} disabled={isWishlistLoading || isUserLoading}>
                 <Heart className={`mr-2 h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
                 <span className='hidden sm:inline'>{isInWishlist ? 'In Wishlist' : 'Wishlist'}</span>
               </Button>
@@ -206,8 +207,16 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                   <h2 className="text-3xl font-bold font-headline">You Might Also Like</h2>
               </div>
             {areRecsLoading ? (
-                <div className="text-center">
-                    <p className="text-muted-foreground">Generating AI recommendations...</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i}>
+                            <Skeleton className="h-40 w-full" />
+                            <CardContent className="p-4">
+                                <Skeleton className="h-5 w-3/4 mb-2" />
+                                <Skeleton className="h-5 w-1/4" />
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : (
                 <Carousel
@@ -242,9 +251,6 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                                         <IndianRupee className="w-4 h-4 mr-1" />
                                         {item.price.toFixed(2)}
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-500 hover:text-rose-600 rounded-full">
-                                        <Heart className="w-5 h-5" />
-                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

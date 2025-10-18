@@ -11,36 +11,34 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { X, IndianRupee, BookOpen, Heart } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, where, updateDoc, arrayRemove } from 'firebase/firestore';
+import { useUser, useCollection, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection, query, where, arrayRemove } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import type { Listing } from '@/lib/types';
 
 export default function WishlistPage() {
   const { user, firestore } = useUser();
   const { toast } = useToast();
 
-  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "wishlists", user.uid) : null, [firestore, user]);
+  const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "users", user.uid, "wishlists", user.uid) : null, [firestore, user]);
   const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
 
   const listingsQuery = useMemo(() => {
     if (!firestore || !wishlist?.listingIds || wishlist.listingIds.length === 0) return null;
-    return query(collection(firestore, 'listings'), where('__name__', 'in', wishlist.listingIds));
+    // Firestore 'in' queries are limited to 30 items. For a larger wishlist, pagination or multiple queries would be needed.
+    return query(collection(firestore, 'listings'), where('__name__', 'in', wishlist.listingIds.slice(0, 30)));
   }, [firestore, wishlist]);
 
-  const { data: wishlistItems, isLoading: areItemsLoading } = useCollection(listingsQuery);
+  const { data: wishlistItems, isLoading: areItemsLoading } = useCollection<Listing>(listingsQuery);
 
   const handleRemoveFromWishlist = async (listingId: string) => {
     if (!wishlistRef) return;
-    try {
-      await updateDoc(wishlistRef, {
-        listingIds: arrayRemove(listingId)
-      });
-      toast({ title: 'Item removed from wishlist.' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error removing item.', description: error.message });
-    }
+    updateDocumentNonBlocking(wishlistRef, {
+      listingIds: arrayRemove(listingId)
+    });
+    toast({ title: 'Item removed from wishlist.' });
   };
   
   const isLoading = isWishlistLoading || areItemsLoading;
@@ -72,9 +70,9 @@ export default function WishlistPage() {
                   />
                 </Link>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="icon"
-                  className="absolute top-2 right-2 bg-white/50 hover:bg-white rounded-full text-destructive-foreground"
+                  className="absolute top-2 right-2 bg-white/50 hover:bg-white rounded-full text-rose-500 hover:text-rose-600"
                   onClick={() => handleRemoveFromWishlist(resource.id)}
                 >
                   <X className="w-5 h-5" />

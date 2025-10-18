@@ -65,12 +65,15 @@ export default function Header() {
             <Search className="h-5 w-5" />
             <span className="sr-only">Search</span>
           </Button>
-          <Link href="/wishlist">
-            <Button variant="ghost" size="icon">
-              <Heart className="h-5 w-5" />
-              <span className="sr-only">Wishlist</span>
-            </Button>
-          </Link>
+          
+          {user && (
+            <Link href="/wishlist">
+              <Button variant="ghost" size="icon">
+                <Heart className="h-5 w-5" />
+                <span className="sr-only">Wishlist</span>
+              </Button>
+            </Link>
+          )}
 
           {user ? (
             <>
@@ -106,6 +109,10 @@ export default function Header() {
                    <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <List className="mr-2 h-4 w-4" />
                     <span>My Listings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/wishlist')}>
+                    <Heart className="mr-2 h-4 w-4" />
+                    <span>My Wishlist</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/chat')}>
                     <MessageCircle className="mr-2 h-4 w-4" />
