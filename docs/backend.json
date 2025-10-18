@@ -18,6 +18,10 @@
         "isBlocked": {
           "type": "boolean",
           "description": "Indicates if the user is blocked from using the application."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Indicates if the user has administrative privileges."
         }
       },
       "required": [
@@ -67,6 +71,10 @@
         "imageUrl": {
           "type": "string",
           "description": "URL of the image associated with the listing."
+        },
+        "isApproved": {
+          "type": "boolean",
+          "description": "Indicates if the listing is approved by an administrator."
         }
       },
       "required": [
@@ -78,7 +86,8 @@
         "department",
         "semester",
         "price",
-        "imageUrl"
+        "imageUrl",
+        "isApproved"
       ]
     },
     "ChatMessage": {
@@ -145,41 +154,56 @@
         "listingIds"
       ]
     },
-    "Recommendation": {
+    "Report": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Recommendation",
+      "title": "Report",
       "type": "object",
-      "description": "Represents a personalized resource recommendation for a user.",
+      "description": "Represents a user-submitted report against a listing for moderation.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the recommendation."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the User for whom the recommendation is generated. (Relationship: User 1:N Recommendation)"
+          "description": "Unique identifier for the report."
         },
         "listingId": {
           "type": "string",
-          "description": "Reference to the Listing being recommended. (Relationship: Listing 1:N Recommendation)"
+          "description": "Reference to the Listing that is being reported."
         },
-        "score": {
-          "type": "number",
-          "description": "Relevance score of the recommendation."
+        "reporterId": {
+          "type": "string",
+          "description": "Reference to the User who submitted the report."
+        },
+        "reason": {
+          "type": "string",
+          "description": "The reason provided by the user for the report."
+        },
+        "summary": {
+          "type": "string",
+          "description": "An AI-generated summary of the report for quick admin review."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the report (e.g., 'pending', 'resolved').",
+          "enum": [
+            "pending",
+            "resolved"
+          ]
         }
       },
       "required": [
         "id",
-        "userId",
         "listingId",
-        "score"
+        "reporterId",
+        "reason",
+        "summary",
+        "status"
       ]
     }
   },
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "google.com"
     ]
   },
   "firestore": {
@@ -239,7 +263,7 @@
           "schema": {
             "$ref": "#/backend/entities/Wishlist"
           },
-          "description": "Stores user wishlists.  Path based ownership.",
+          "description": "Stores user wishlists. Path based ownership.",
           "params": [
             {
               "name": "userId",
@@ -253,22 +277,22 @@
         }
       },
       {
-        "path": "/recommendations/{recommendationId}",
+        "path": "/reports/{reportId}",
         "definition": {
-          "entityName": "Recommendation",
+          "entityName": "Report",
           "schema": {
-            "$ref": "#/backend/entities/Recommendation"
+            "$ref": "#/backend/entities/Report"
           },
-          "description": "Stores personalized resource recommendations for users.",
+          "description": "Stores user-submitted reports for listings.",
           "params": [
             {
-              "name": "recommendationId",
-              "description": "The unique identifier for the recommendation."
+              "name": "reportId",
+              "description": "The unique identifier for the report."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily maintainable data model for the Re-Source application, adhering to the principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters).  \n\nAuthorization Independence is achieved through denormalization. Specifically, for Listings, the `userId` is stored directly within each listing document, which is essential for ownership-based access control without requiring `get()` calls in security rules. For collaborative data (which doesn't exist in the current model, but anticipating future expansion) we would typically denormalize membership maps.\n\nStructural Segregation is used by placing different data types into separate collections (e.g., `users`, `listings`, `chat_messages`), ensuring that each collection has a homogeneous security posture.  Path-Based ownership (`/users/{userId}/wishlists/{wishlistId}`) is utilized for entities representing a User 1:N Entity relationship, making security rules simple and efficient.  This applies to wishlists.\n\nAccess Modeling is standardized: Private data related to users is stored under their respective user ID, while shared data (currently none, but would apply to collaborative listings) could use membership maps if needed.  \n\nQAPs (Rules are not Filters) are supported via structural segregation.  Secure list operations are enabled by ensuring that security rules can efficiently determine access based on the document path and the current user's authentication state, without needing to filter data based on document content.\n\nFor invariants: Ownership is enforced via path-based structures, which provides secure association between entities, such as users and their listings."
+    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily maintainable data model. It uses separate collections for distinct data types (users, listings, etc.) for clarity and security. Path-based ownership is used for wishlists to simplify security rules. Denormalization of `userId` in listings ensures ownership can be checked without extra database reads. Admin-specific collections like `reports` are added for moderation purposes."
   }
 }

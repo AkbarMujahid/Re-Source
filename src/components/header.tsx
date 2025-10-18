@@ -16,7 +16,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings } from 'lucide-react';
+import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings, Shield } from 'lucide-react';
 import { Logo } from './logo';
 import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -31,12 +31,16 @@ const navLinks = [
   { href: '/contact', label: 'Contact' },
 ];
 
+const ADMIN_UID = 'xqBCK8gcsgQGfVFFan33QsQAqlC3';
+
 export default function Header() {
   const { user, auth, firestore } = useUser();
   const router = useRouter();
 
   const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
   const { data: userData } = useDoc(userDocRef);
+  
+  const isAdmin = useMemo(() => user?.uid === ADMIN_UID, [user]);
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -105,6 +109,12 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                   {isAdmin && (
+                    <DropdownMenuItem onClick={() => router.push('/admin')}>
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
