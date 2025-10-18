@@ -68,8 +68,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Email</h3>
-                    <a href="mailto:support@re-source.com" className="text-muted-foreground hover:text-primary transition-colors">
-                      support@re-source.com
+                    <a href="mailto:akbarmujahid1114@gmail.com" className="text-muted-foreground hover:text-primary transition-colors">
+                      akbarmujahid1114@gmail.com
                     </a>
                   </div>
                 </div>
@@ -79,19 +79,7 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold">Phone</h3>
-                    <p className="text-muted-foreground">(+91) 123-456-7890</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                   <div className="bg-primary/10 p-3 rounded-full mt-1">
-                    <MapPin className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Office</h3>
-                    <p className="text-muted-foreground">
-                      123 Innovation Drive, <br />
-                      SCE Campus, Bengaluru, 560001
-                    </p>
+                    <p className="text-muted-foreground">(+91) 7039965293</p>
                   </div>
                 </div>
               </div>
