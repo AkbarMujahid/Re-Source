@@ -7,6 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Mail, Phone, MapPin, Twitter, Linkedin, Facebook, Send } from "lucide-react";
 import Link from "next/link";
 
+// Custom WhatsApp Icon Component
+const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    {...props}
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+  >
+    <path d="M16.75 13.96c.25.13.41.2.52.34.11.14.15.33.1.53-.06.23-.34.42-.69.52-.31.09-.75.14-1.32.06-.71-.1-1.39-.39-2.04-.79-.89-.55-1.61-1.28-2.2-2.12-.51-.73-.83-1.55-.9-2.43-.07-.88.23-1.63.78-2.22.2-.21.43-.37.66-.46.23-.09.43-.1.58-.05.15.05.29.1.41.17.12.07.21.15.28.25.1.13.15.28.11.45-.02.13-.05.26-.09.39-.04.13-.1.29-.15.39-.1.22-.21.43-.06.66.3.43.68.84 1.12 1.22.44.38.85.71 1.29.98.24.15.42.21.58.21.17,0,.31-.03.44-.1.15-.09.28-.2.4-.33.09-.1.19-.19.3-.25.11-.06.22-.09.33-.09.15,0,.29.04.41.12s.22.18.3.31c.08.13.12.26.12.41-.01.15-.05.28-.12.41z M12 2a10 10 0 1 0 10 10 10 10 0 0 0-10-10zm0 18.2a8.2 8.2 0 1 1 8.2-8.2 8.21 8.21 0 0 1-8.2 8.2z" />
+  </svg>
+);
+
+
 export default function ContactPage() {
   return (
     <div className="bg-background text-foreground">
@@ -87,13 +100,17 @@ export default function ContactPage() {
               <div className="mt-8 pt-8 border-t">
                   <h3 className="text-xl font-bold mb-4">Follow Us</h3>
                   <div className="flex items-center gap-4">
+                      <Link href="https://wa.me/917039965293" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                          <WhatsAppIcon className="w-7 h-7" />
+                          <span className="sr-only">WhatsApp</span>
+                      </Link>
+                      <Link href="https://www.linkedin.com/in/akbarmujahid" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                          <Linkedin className="w-7 h-7" />
+                          <span className="sr-only">LinkedIn</span>
+                      </Link>
                       <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
                           <Twitter className="w-7 h-7" />
                           <span className="sr-only">Twitter</span>
-                      </Link>
-                      <Link href="https://www.linkedin.com/in/akbarmujahid" className="text-muted-foreground hover:text-primary transition-colors">
-                          <Linkedin className="w-7 h-7" />
-                          <span className="sr-only">LinkedIn</span>
                       </Link>
                       <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
                           <Facebook className="w-7 h-7" />
