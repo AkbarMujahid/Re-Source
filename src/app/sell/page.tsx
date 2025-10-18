@@ -91,7 +91,10 @@ export default function SellPage() {
         isApproved: true, // Assuming auto-approval for now
       });
 
-      toast({ title: 'Listing created successfully!' });
+      toast({ 
+        title: 'Listing Created!',
+        description: `Your item "${title}" has been successfully listed.`,
+      });
       router.push('/buy');
 
     } catch (error: any) {
