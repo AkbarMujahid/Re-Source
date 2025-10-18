@@ -46,7 +46,7 @@ export default function AboutPage() {
           </div>
           <div className="order-1 md:order-2">
             <Image
-              src="https://picsum.photos/seed/mission/600/400"
+              src="https://drive.google.com/file/d/1uGVbPXc0HZfGwY9dpv1Xw_tFtO2wI1Wb/view?usp=sharing"
               alt="Students collaborating"
               width={600}
               height={400}
