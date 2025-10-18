@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/buy', label: 'Buy' },
+  { href: '/sell', label: 'Sell' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -55,14 +56,16 @@ export default function Header() {
             <span className="font-bold text-lg hidden sm:inline-block">Re-Source</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            {navLinks.map((link) => (
+            {navLinks.map((link) => {
+              if (link.href === '/sell' && !user) return null;
+              return (
               <Link key={link.href} href={link.href} className={cn(
                 "font-medium text-muted-foreground transition-colors hover:text-primary",
-                link.href === '/buy' && 'font-bold text-primary'
+                (link.href === '/buy' || link.href === '/sell') && 'font-bold text-primary'
               )}>
                 {link.label}
               </Link>
-            ))}
+            )})}
           </nav>
         </div>
 
@@ -84,12 +87,6 @@ export default function Header() {
 
           {user ? (
             <>
-              <Link href="/sell" passHref>
-                <Button className="hidden sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/90">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Sell
-                </Button>
-              </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -158,11 +155,13 @@ export default function Header() {
                      <Logo className="h-8 w-8 text-primary" />
                      <span className="font-bold text-lg">Re-Source</span>
                   </Link>
-                  {navLinks.map((link) => (
+                  {navLinks.map((link) => {
+                     if (link.href === '/sell' && !user) return null;
+                    return (
                     <Link key={link.href} href={link.href} className="font-medium text-muted-foreground transition-colors hover:text-primary">
                       {link.label}
                     </Link>
-                  ))}
+                  )})}
                   <hr/>
                    {!user && (
                      <div className="flex flex-col gap-2">
