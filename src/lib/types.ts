@@ -33,16 +33,12 @@ export type Report = {
   status: 'pending' | 'resolved';
 };
 
-export type Conversation = {
-    id: string;
-    participants: string[];
-    lastMessage: string;
-    lastMessageTimestamp: any; // Firestore ServerTimestamp
-};
-
 export type ChatMessage = {
     id: string;
+    listingId: string;
     senderId: string;
+    senderName: string;
+    senderAvatar: string;
     text: string;
     timestamp: any; // Firestore ServerTimestamp
 };

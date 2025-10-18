@@ -74,11 +74,6 @@ export default function Header() {
                     <a><Heart className="h-5 w-5" /><span className="sr-only">Wishlist</span></a>
                 </Button>
               </Link>
-              <Link href="/chat" passHref>
-                <Button variant="ghost" size="icon" asChild>
-                    <a><MessageCircle className="h-5 w-5" /><span className="sr-only">Chat</span></a>
-                </Button>
-              </Link>
             </>
           )}
 
@@ -120,10 +115,6 @@ export default function Header() {
                   <DropdownMenuItem onClick={() => router.push('/wishlist')}>
                     <Heart className="mr-2 h-4 w-4" />
                     <span>My Wishlist</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/chat')}>
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    <span>Chat</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/settings')}>
                     <Settings className="mr-2 h-4 w-4" />

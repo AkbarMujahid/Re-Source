@@ -3,10 +3,10 @@
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Heart, MessageCircle, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle } from 'lucide-react';
+import { Heart, Tag, Book, Building, Calendar, IndianRupee, Lightbulb, AlertCircle, Send } from 'lucide-react';
 import Link from 'next/link';
 import {
   Carousel,
@@ -16,13 +16,124 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { useDoc, useUser } from '@/firebase';
-import { doc, collection, arrayUnion, arrayRemove, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { useMemo, useState, useEffect } from 'react';
+import { doc, collection, query, orderBy, addDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { suggestResourceRecommendations } from '@/ai/flows/suggest-resource-recommendations';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import type { ChatMessage, Listing, UserProfile } from '@/lib/types';
+
+
+function ChatArea({ listingId }: { listingId: string }) {
+  const { user, firestore, isUserLoading } = useUser();
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const messagesQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'listings', listingId, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, listingId]);
+
+  const { data: messages, isLoading: areMessagesLoading } = useCollection<ChatMessage>(messagesQuery);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !user || !listingId || newMessage.trim() === '') return;
+
+    const messagesCollection = collection(firestore, 'listings', listingId, 'messages');
+    const messageData = {
+      listingId,
+      senderId: user.uid,
+      senderName: user.displayName || 'Anonymous',
+      senderAvatar: user.photoURL || '',
+      text: newMessage,
+      timestamp: serverTimestamp(),
+    };
+
+    try {
+      addDoc(messagesCollection, messageData);
+      setNewMessage('');
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
+
+  const isLoading = isUserLoading || areMessagesLoading;
+
+  return (
+    <Card className="mt-8">
+      <CardHeader>
+        <CardTitle>Discussion</CardTitle>
+      </CardHeader>
+      <CardContent className="h-96 overflow-y-auto p-4 space-y-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-16 w-3/4" />
+            <Skeleton className="h-16 w-3/4 ml-auto" />
+            <Skeleton className="h-16 w-3/4" />
+          </div>
+        ) : (
+          messages?.map((message) => (
+            <div
+              key={message.id}
+              className={cn(
+                'flex items-start gap-3',
+                message.senderId === user?.uid ? 'justify-end' : 'justify-start'
+              )}
+            >
+              {message.senderId !== user?.uid && (
+                 <Avatar className="h-8 w-8 border">
+                    <AvatarImage src={message.senderAvatar} />
+                    <AvatarFallback>{message.senderName?.charAt(0)}</AvatarFallback>
+                </Avatar>
+              )}
+              <div
+                className={cn(
+                  'max-w-md rounded-lg px-4 py-2 flex flex-col',
+                  message.senderId === user?.uid
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold">{message.senderName}</p>
+                    <p className='text-xs text-muted-foreground/80'>
+                        {message.timestamp ? format(new Date(message.timestamp.seconds * 1000), 'p') : ''}
+                    </p>
+                </div>
+                <p className="text-sm">{message.text}</p>
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </CardContent>
+      <CardFooter className="border-t p-4">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 w-full">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Ask a question about this item..."
+            autoComplete="off"
+            disabled={isLoading || !user}
+          />
+          <Button type="submit" size="icon" disabled={isLoading || !newMessage.trim() || !user}>
+            <Send />
+          </Button>
+        </form>
+      </CardFooter>
+    </Card>
+  );
+}
 
 
 export default function ListingDetailPage({ params }: { params: { id: string } }) {
@@ -33,10 +144,10 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   const [areRecsLoading, setAreRecsLoading] = useState(false);
 
   const resourceRef = useMemo(() => firestore ? doc(firestore, 'listings', params.id) : null, [firestore, params.id]);
-  const { data: resource, isLoading: isResourceLoading } = useDoc(resourceRef);
+  const { data: resource, isLoading: isResourceLoading } = useDoc<Listing>(resourceRef);
 
   const allListingsCollection = useMemo(() => firestore ? collection(firestore, 'listings') : null, [firestore]);
-  const { data: allListings } = useCollection(allListingsCollection);
+  const { data: allListings } = useCollection<Listing>(allListingsCollection);
 
   const wishlistRef = useMemo(() => user && firestore ? doc(firestore, "users", user.uid, "wishlists", user.uid) : null, [firestore, user]);
   const { data: wishlist, isLoading: isWishlistLoading } = useDoc(wishlistRef);
@@ -74,41 +185,6 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
     }
   };
 
-  const handleContactSeller = async () => {
-    if (!user || !firestore || !resource) {
-      router.push('/login');
-      return;
-    }
-
-    if(user.uid === resource.userId) {
-      toast({ variant: 'destructive', title: 'You cannot start a conversation with yourself.' });
-      return;
-    }
-
-    // Create a unique ID for the conversation between these two users
-    const conversationId = [user.uid, resource.userId].sort().join('_');
-    const conversationRef = doc(firestore, 'conversations', conversationId);
-    
-    try {
-        const conversationSnap = await getDoc(conversationRef);
-        
-        if (!conversationSnap.exists()) {
-            await setDoc(conversationRef, {
-                id: conversationId,
-                participants: [user.uid, resource.userId],
-                lastMessage: `Conversation about '${resource.title}' started.`,
-                lastMessageTimestamp: serverTimestamp(),
-            });
-        }
-        
-        router.push(`/chat/${conversationId}`);
-    } catch (error) {
-        console.error("Error creating or getting conversation:", error);
-        toast({ variant: 'destructive', title: 'Could not start conversation.' });
-    }
-};
-
-  
   const fetchRecommendations = async () => {
       if (!resource || !allListings) return;
       setAreRecsLoading(true);
@@ -159,7 +235,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
   }
   
     const sellerRef = useMemo(() => firestore && resource ? doc(firestore, 'users', resource.userId) : null, [firestore, resource]);
-    const {data: seller} = useDoc(sellerRef);
+    const {data: seller} = useDoc<UserProfile>(sellerRef);
 
 
   return (
@@ -190,13 +266,9 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
             </div>
             
             <div className="flex items-center gap-4 mb-6">
-              <Button size="lg" className="flex-1" onClick={handleContactSeller} disabled={isUserLoading}>
-                <MessageCircle className="mr-2 h-5 w-5" />
-                Contact Seller
-              </Button>
-              <Button variant={isInWishlist ? "secondary" : "outline"} size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300" onClick={handleWishlistToggle} disabled={isWishlistLoading || isUserLoading}>
+              <Button variant={isInWishlist ? "secondary" : "outline"} size="lg" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200 hover:border-rose-300 flex-1" onClick={handleWishlistToggle} disabled={isWishlistLoading || isUserLoading}>
                 <Heart className={`mr-2 h-5 w-5 ${isInWishlist ? 'fill-current' : ''}`} />
-                <span className='hidden sm:inline'>{isInWishlist ? 'In Wishlist' : 'Wishlist'}</span>
+                <span>{isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}</span>
               </Button>
             </div>
 
@@ -206,7 +278,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
             <Card className="bg-background">
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={seller?.photoURL} alt={seller?.displayName} />
+                  <AvatarImage src={seller?.photoURL || undefined} alt={seller?.displayName || undefined} />
                   <AvatarFallback>{seller?.displayName?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -226,6 +298,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
                 <p className="text-foreground/80 leading-relaxed">
                     {resource.description}
                 </p>
+                 <ChatArea listingId={params.id} />
             </div>
             <div>
                  <h2 className="text-2xl font-bold font-headline mb-4">Details</h2>
@@ -329,7 +402,6 @@ function ListingDetailSkeleton() {
             <Skeleton className="h-8 w-1/2 mb-4" />
             <div className="flex items-center gap-4 mb-6">
               <Skeleton className="h-12 flex-1" />
-              <Skeleton className="h-12 w-24" />
             </div>
             <Separator className="my-6" />
             <Card className="bg-background">
