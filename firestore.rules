@@ -109,7 +109,7 @@ service cloud.firestore {
      */
     match /conversations/{conversationId} {
       allow get: if isParticipant(conversationId);
-      allow list: if false;
+      allow list: if true;
       allow create: if isSignedIn() && request.resource.data.participants is list;
       allow update: if isParticipant(conversationId);
       allow delete: if isParticipant(conversationId);
