@@ -34,15 +34,6 @@ export default function AdminPage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || user?.uid !== ADMIN_UID) {
-    return (
-      <div className="container text-center py-12">
-        <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-        <p className="mt-4 text-muted-foreground">Loading or checking permissions...</p>
-      </div>
-    );
-  }
-
   const totalUsers = users?.length || 0;
   const totalListings = listings?.length || 0;
   const totalReports = reports?.length || 0;
@@ -60,6 +51,15 @@ export default function AdminPage() {
   const chartConfig = {
     value: { label: 'Listings' },
   };
+
+  if (isUserLoading || user?.uid !== ADMIN_UID) {
+    return (
+      <div className="container text-center py-12">
+        <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">Loading or checking permissions...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
