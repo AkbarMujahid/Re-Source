@@ -21,7 +21,7 @@ import { useUser, addDocumentNonBlocking } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { UploadCloud } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { collection, serverTimestamp } from 'firebase/firestore'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
@@ -29,6 +29,8 @@ export default function SellPage() {
   const { user, firestore, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  
+  const storage = useMemo(() => firestore ? getStorage() : null, [firestore]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -54,7 +56,7 @@ export default function SellPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !firestore) {
+    if (!user || !firestore || !storage) {
       toast({ variant: 'destructive', title: 'Authentication error. Please log in again.' });
       return;
     }
@@ -66,13 +68,12 @@ export default function SellPage() {
     setIsLoading(true);
 
     try {
-      const storage = getStorage();
       const imageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${imageFile.name}`);
       const uploadResult = await uploadBytes(imageRef, imageFile);
       const imageUrl = await getDownloadURL(uploadResult.ref);
 
       const listingsCollection = collection(firestore, 'listings');
-      await addDocumentNonBlocking(listingsCollection, {
+      addDocumentNonBlocking(listingsCollection, {
         title,
         description,
         category,
