@@ -91,7 +91,7 @@ export default function ContactPage() {
                           <Twitter className="w-7 h-7" />
                           <span className="sr-only">Twitter</span>
                       </Link>
-                      <Link href="#" className="text-muted-foreground hover:text-primary transition-colors">
+                      <Link href="https://www.linkedin.com/in/akbarmujahid" className="text-muted-foreground hover:text-primary transition-colors">
                           <Linkedin className="w-7 h-7" />
                           <span className="sr-only">LinkedIn</span>
                       </Link>
