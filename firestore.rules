@@ -1,118 +1,167 @@
 /**
- * @file Firebase Security Rules for Re-Source Application
+ * @fileoverview Firestore Security Rules for Re-Source application.
  *
- * @description This ruleset enforces a user-ownership model for user profiles and wishlists,
- * allows public read access to listings with owner-only writes, and provides open access to
- * conversations and chat messages for prototyping purposes.
+ * Core Philosophy:
+ * This ruleset prioritizes secure user access based on ownership and role-based authorization.
+ * It ensures that users can only access their own data and that administrative actions are restricted to authorized personnel.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles; access controlled by user ID.
- * - /listings/{listingId}: Stores resource listings; publicly readable, writable only by the owner.
- * - /conversations/{conversationId}: Stores conversation metadata; open access during prototyping.
- * - /conversations/{conversationId}/messages/{messageId}: Stores chat messages; open access during prototyping.
- * - /users/{userId}/wishlists/{wishlistId}: Stores user wishlists; access controlled by user ID.
- * - /reports/{reportId}: Stores reports; create access granted to signed-in users, further access to be defined.
+ * - Users: Stored in `/users/{userId}`, accessible only by the user themselves.
+ * - Listings: Stored in `/listings/{listingId}`, with open read access but restricted write access based on ownership (`userId` field).
+ * - Conversations: Stored in `/conversations/{conversationId}`, accessible only to participating users.
+ * - Chat Messages: Stored in `/conversations/{conversationId}/messages/{messageId}`, accessible only to participants of the parent conversation.
+ * - Wishlists: Stored in `/users/{userId}/wishlists/{wishlistId}`, accessible only by the owner.
+ * - Reports: Stored in `/reports/{reportId}`, writeable by any signed-in user, with the assumption of admin review.
  *
  * Key Security Decisions:
- * - Users can only manage their own profiles and wishlists.
- * - Listings are publicly readable but only the owner can modify or delete them.
- * - Conversations and chat messages have open access (for now).
- * - Reports can be created by any authenticated user.
+ * - User listing is disabled for privacy.
+ * - Public read access is granted to listings, but writes are controlled by the owner.
+ * - Conversations and messages are restricted to participants only.
+ * - Reports are open for creation by signed-in users to facilitate content moderation.
  *
  * Denormalization for Authorization:
- * - The `listings` collection denormalizes the `userId` to allow for efficient ownership checks without additional reads.
+ * - Listings include a `userId` field to enable ownership checks without additional reads.
+ * - Conversations include `participants` array to allow quick rule-based access.
  *
  * Structural Segregation:
- * - There are no explicitly private vs. public collections. The listings collection uses public read with owner-only writes.
+ * - Wishlists are stored in a user subcollection to ensure private data and simplify owner-based access rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profiles. Users can only read and write their own profile data.
-     * @path /users/{userId}
-     * @allow (get, create, update, delete): User with UID 'user123' can perform any operation on /users/user123.
-     * @deny (get, create, update, delete): User with UID 'user456' cannot perform any operation on /users/user123.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @description Defines the helper function to check if the user is signed in
      */
-    match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     /**
-     * @description Controls access to academic resource listings.
+     * @description Defines the helper function to check if the user is the owner of the resource.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Defines the helper function to check if the user is the existing owner of the resource.
+     * Checks both ownership and existence of the document.
+     */
+    function isExistingOwner(userId) {
+      return isSignedIn() && isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Defines the helper function to check if the user is a participant in a conversation.
+     */
+    function isParticipant(conversationId) {
+      return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    }
+
+    /**
+     * @description Rules for user profiles.
+     * @path /users/{userId}
+     * @allow (create) User 'test_user' can create their own profile.
+     * @allow (get, update, delete) User 'test_user' can get, update, and delete their own profile.
+     * @deny (create) User 'hacker' cannot create a profile with someone elses userId 'test_user'.
+     * @deny (get, update, delete) User 'hacker' cannot get, update, and delete the 'test_user' profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for academic resource listings.
      * @path /listings/{listingId}
-     * @allow get, list: Any user can read all listings.
-     * @allow create: User with UID 'user123' can create a listing with userId: 'user123'.
-     * @allow update, delete: Only the user who created the listing can modify or delete it.
-     * @deny update, delete: User with UID 'user456' cannot update/delete listing created by 'user123'.
-     * @principle Allows public read access, but restricts writes to the owner of the listing.
+     * @allow (get, list) Any user can get or list the listing.
+     * @allow (create) User 'test_user' can create a listing with their userId.
+     * @allow (update, delete) User 'test_user' can update or delete a listing with their userId.
+     * @deny (create) User 'hacker' cannot create a listing with someone elses userId 'test_user'.
+     * @deny (update, delete) User 'hacker' cannot update or delete the listing from 'test_user'.
+     * @principle Enforces document ownership for writes but allows public reads.
      */
     match /listings/{listingId} {
       allow get, list: if true;
-      allow create: if request.auth.uid == request.resource.data.userId;
-      allow update: if request.auth.uid == resource.data.userId;
-      allow delete: if request.auth.uid == resource.data.userId;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
     }
 
     /**
-     * @description Controls access to chat conversations.  For now, provides open access for prototyping.
+     * @description Rules for chat conversations.
      * @path /conversations/{conversationId}
-     * @allow get, list, create, update, delete: Any user can perform any operation on any conversation.
-     * @principle Open access for prototyping; will be secured later.
+     * @allow (get) A participant can get a conversation.
+     * @allow (list) Fails due to error in the app where any signed in user can list ALL conversations.
+     * @allow (create) Any signed in user can create a conversation with valid participants.
+     * @allow (update) A participant can update a conversation.
+     * @allow (delete) A participant can delete a conversation.
+     * @deny (get) User 'hacker' cannot get a conversation they are not a participant in.
+     * @deny (create) User 'hacker' cannot create a conversation if they are not authenticated.
+     * @deny (update) User 'hacker' cannot update a conversation they are not a participant in.
+     * @deny (delete) User 'hacker' cannot delete a conversation they are not a participant in.
+     * @principle Restricts access to conversations to participating users only.
      */
     match /conversations/{conversationId} {
-      allow get, list, create, update, delete: if true;
+      allow get: if isParticipant(conversationId);
+      allow list: if false;
+      allow create: if isSignedIn() && request.resource.data.participants is list;
+      allow update: if isParticipant(conversationId);
+      allow delete: if isParticipant(conversationId);
     }
 
     /**
-     * @description Controls access to chat messages within a conversation.  For now, provides open access for prototyping.
+     * @description Rules for chat messages within a conversation.
      * @path /conversations/{conversationId}/messages/{messageId}
-     * @allow get, list, create, update, delete: Any user can perform any operation on any message.
-     * @principle Open access for prototyping; will be secured later.
+     * @allow (get, list) A participant can get or list messages in a conversation.
+     * @allow (create) A participant can create a message in a conversation.
+     * @allow (update, delete) No one can update or delete a message.
+     * @deny (get, list) User 'hacker' cannot get or list messages in a conversation they are not a participant in.
+     * @deny (create) User 'hacker' cannot create a message in a conversation they are not a participant in.
+     * @deny (update, delete) Any user cannot update or delete a message.
+     * @principle Restricts access to messages within a conversation to participating users only.
      */
     match /conversations/{conversationId}/messages/{messageId} {
-      allow get, list, create, update, delete: if true;
+      allow get, list: if isParticipant(conversationId);
+      allow create: if isParticipant(conversationId) && request.resource.data.senderId == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to user wishlists. Users can only manage their own wishlists.
+     * @description Rules for user wishlists.
      * @path /users/{userId}/wishlists/{wishlistId}
-     * @allow (get, create, update, delete): User with UID 'user123' can perform any operation on /users/user123/wishlists/wishlist456.
-     * @deny (get, create, update, delete): User with UID 'user456' cannot perform any operation on /users/user123/wishlists/wishlist456.
-     * @principle Enforces document ownership for all operations on user wishlists.
+     * @allow (get, list, create, update, delete) User 'test_user' can get, list, create, update, and delete their own wishlist.
+     * @deny (get, list, create, update, delete) User 'hacker' cannot get, list, create, update, and delete the 'test_user' wishlist.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/wishlists/{wishlistId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to reports. Any authenticated user can create a report.
-     * Further access control to be defined.
+     * @description Rules for user-submitted reports.
      * @path /reports/{reportId}
-     * @allow create: Authenticated user can create a report.
-     * @deny create: Unauthenticated user cannot create a report.
-     * @principle Allows authenticated users to create reports; further access to be defined.
+     * @allow (get) A signed in user can get a report.
+     * @allow (list) No one can list reports.
+     * @allow (create) A signed in user can create a report.
+     * @allow (update, delete) No one can update or delete reports.
+     * @deny (create) User 'hacker' cannot create a report if they are not authenticated.
+     * @deny (update, delete) Any user cannot update or delete a report.
+     * @principle Allows creating reports for moderation purposes, but restricts modifications.
      */
     match /reports/{reportId} {
-      allow get: if false;
+      allow get: if isSignedIn();
       allow list: if false;
-      allow create: if request.auth != null;
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid && request.resource.data.listingId is string;
       allow update: if false;
       allow delete: if false;
     }
