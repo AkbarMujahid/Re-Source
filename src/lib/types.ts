@@ -31,3 +31,22 @@ export type Report = {
   summary: string;
   status: 'pending' | 'resolved';
 };
+
+export type Conversation = {
+    id: string;
+    participants: string[];
+    // We'll also store denormalized data about the other participant for easy display
+    otherUserName: string;
+    otherUserAvatar: string;
+    lastMessage: string;
+    lastMessageTimestamp: any; // Firestore ServerTimestamp
+};
+
+export type ChatMessage = {
+    id: string;
+    senderId: string;
+    text: string;
+    timestamp: any; // Firestore ServerTimestamp
+};
+
+    

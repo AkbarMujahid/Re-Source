@@ -94,7 +94,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ChatMessage",
       "type": "object",
-      "description": "Represents a message exchanged between users in the chat feature.",
+      "description": "Represents a message within a conversation.",
       "properties": {
         "id": {
           "type": "string",
@@ -102,28 +102,53 @@
         },
         "senderId": {
           "type": "string",
-          "description": "Reference to the User who sent the message. (Relationship: User 1:N ChatMessage (Sender))"
+          "description": "The UID of the user who sent the message."
         },
-        "receiverId": {
+        "text": {
           "type": "string",
-          "description": "Reference to the User who received the message. (Relationship: User 1:N ChatMessage (Receiver))"
-        },
-        "message": {
-          "type": "string",
-          "description": "Content of the message."
+          "description": "The content of the message."
         },
         "timestamp": {
-          "type": "string",
-          "description": "Timestamp indicating when the message was sent.",
-          "format": "date-time"
+          "type": "object",
+          "description": "The server timestamp when the message was created."
         }
       },
       "required": [
         "id",
         "senderId",
-        "receiverId",
-        "message",
+        "text",
         "timestamp"
+      ]
+    },
+    "Conversation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Conversation",
+      "type": "object",
+      "description": "Represents a chat conversation between two or more users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the conversation."
+        },
+        "participants": {
+          "type": "array",
+          "description": "An array of user UIDs who are part of the conversation.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lastMessage": {
+          "type": "string",
+          "description": "The text of the last message sent in the conversation."
+        },
+        "lastMessageTimestamp": {
+          "type": "object",
+          "description": "The server timestamp of the last message."
+        }
+      },
+      "required": [
+        "id",
+        "participants"
       ]
     },
     "Wishlist": {
@@ -241,17 +266,37 @@
         }
       },
       {
-        "path": "/chat_messages/{chatMessageId}",
+        "path": "/conversations/{conversationId}",
+        "definition": {
+          "entityName": "Conversation",
+          "schema": {
+            "$ref": "#/backend/entities/Conversation"
+          },
+          "description": "Stores metadata for each chat conversation.",
+          "params": [
+            {
+              "name": "conversationId",
+              "description": "The unique identifier for the conversation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/conversations/{conversationId}/messages/{messageId}",
         "definition": {
           "entityName": "ChatMessage",
           "schema": {
             "$ref": "#/backend/entities/ChatMessage"
           },
-          "description": "Stores chat messages exchanged between users.",
+          "description": "Subcollection storing messages for a specific conversation.",
           "params": [
             {
-              "name": "chatMessageId",
-              "description": "The unique identifier for the chat message."
+              "name": "conversationId",
+              "description": "The identifier for the parent conversation."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the message."
             }
           ]
         }
@@ -293,6 +338,8 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to provide a secure, scalable, and easily maintainable data model. It uses separate collections for distinct data types (users, listings, etc.) for clarity and security. Path-based ownership is used for wishlists to simplify security rules. Denormalization of `userId` in listings ensures ownership can be checked without extra database reads. Admin-specific collections like `reports` are added for moderation purposes."
+    "reasoning": "The Firestore structure is designed for a secure and scalable chat and marketplace application. It uses separate top-level collections for major data types. The 'conversations' collection manages chat metadata, with a subcollection for 'messages' to ensure queries remain efficient. This structure allows for secure, rule-based access where users can only access conversations they are participants in. Path-based ownership is used for wishlists to simplify security rules. Denormalization of `userId` in listings ensures ownership can be checked without extra database reads."
   }
 }
+
+    

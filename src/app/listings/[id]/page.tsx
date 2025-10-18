@@ -15,7 +15,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import { useDoc, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, collection, arrayUnion, arrayRemove, setDoc, getDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { useMemo, useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -55,8 +55,6 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       updateDocumentNonBlocking(wishlistRef, { listingIds: arrayRemove(params.id) });
       toast({ title: 'Removed from wishlist.' });
     } else {
-      // For a document that might not exist, we use set with merge: true
-      // to create it if it's missing, or update it if it exists.
       updateDocumentNonBlocking(wishlistRef, {
         userId: user.uid,
         listingIds: arrayUnion(params.id),
@@ -64,6 +62,52 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       toast({ title: 'Added to wishlist!' });
     }
   };
+
+  const handleContactSeller = async () => {
+    if (!user || !firestore || !resource) {
+      router.push('/login');
+      return;
+    }
+
+    if(user.uid === resource.userId) {
+      toast({ variant: 'destructive', title: 'You cannot start a conversation with yourself.' });
+      return;
+    }
+
+    // Create a unique ID for the conversation between these two users
+    const conversationId = [user.uid, resource.userId].sort().join('_');
+    const conversationRef = doc(firestore, 'conversations', conversationId);
+    
+    try {
+        const conversationSnap = await getDoc(conversationRef);
+        
+        if (!conversationSnap.exists()) {
+            const sellerDoc = await getDoc(doc(firestore, 'users', resource.userId));
+            const sellerData = sellerDoc.data();
+
+            await setDoc(conversationRef, {
+                participants: [user.uid, resource.userId],
+                lastMessage: `Conversation about '${resource.title}' started.`,
+                lastMessageTimestamp: serverTimestamp(),
+                // Denormalize other user's data for easy access
+                [user.uid]: { // My info
+                    displayName: user.displayName,
+                    photoURL: user.photoURL,
+                },
+                [resource.userId]: { // Seller's info
+                    displayName: sellerData?.displayName,
+                    photoURL: sellerData?.photoURL,
+                }
+            });
+        }
+        
+        router.push(`/chat/${conversationId}`);
+    } catch (error) {
+        console.error("Error creating or getting conversation:", error);
+        toast({ variant: 'destructive', title: 'Could not start conversation.' });
+    }
+};
+
   
   const fetchRecommendations = async () => {
       if (!resource || !allListings) return;
@@ -113,6 +157,10 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
       </div>
     );
   }
+  
+    const sellerRef = useMemo(() => firestore && resource ? doc(firestore, 'users', resource.userId) : null, [firestore, resource]);
+    const {data: seller} = useDoc(sellerRef);
+
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -142,7 +190,7 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
             </div>
             
             <div className="flex items-center gap-4 mb-6">
-              <Button size="lg" className="flex-1">
+              <Button size="lg" className="flex-1" onClick={handleContactSeller} disabled={isUserLoading}>
                 <MessageCircle className="mr-2 h-5 w-5" />
                 Contact Seller
               </Button>
@@ -158,11 +206,11 @@ export default function ListingDetailPage({ params }: { params: { id: string } }
             <Card className="bg-background">
               <CardHeader className="flex flex-row items-center gap-4">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={resource.sellerAvatarUrl} alt={resource.sellerName} />
-                  <AvatarFallback>{resource.sellerName?.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={seller?.photoURL} alt={seller?.displayName} />
+                  <AvatarFallback>{seller?.displayName?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-lg">Sold by {resource.sellerName}</CardTitle>
+                  <CardTitle className="text-lg">Sold by {seller?.displayName || '...'}</CardTitle>
                 </div>
               </CardHeader>
             </Card>
@@ -315,3 +363,5 @@ function ListingDetailSkeleton() {
     </div>
   );
 }
+
+    
