@@ -3,7 +3,7 @@
  *
  * Core Philosophy:
  * Enforces strict user-ownership for user-specific data while allowing public read access to listings.
- * Admins are managed through the /roles_admin collection.
+ * Admins are managed through the /roles_admin collection or auth token.
  *
  * Data Structure:
  * - /users/{userId}: User profiles.
@@ -30,25 +30,24 @@ service cloud.firestore {
       return isOwner(userId) && resource != null;
     }
 
+    // -------------------- MODIFIED isAdmin() --------------------
     function isAdmin() {
-      return exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
+      // Check token first
+      let tokenAdmin = request.auth.token.isAdmin == true;
+
+      // Check roles_admin collection
+      let collectionAdmin = exists(/databases/(default)/documents/roles_admin/$(request.auth.uid));
+
+      // Return true if either method says admin
+      return isSignedIn() && (tokenAdmin || collectionAdmin);
     }
 
     // -------------------- USERS --------------------
     match /users/{userId} {
-      // Users can read their own document; admins can read any user document
       allow get: if isOwner(userId) || isAdmin();
-      
-      // Only admins can list all users
       allow list: if isAdmin();
-
-      // Users can create their own document
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-
-      // Users can update their own document; enforce immutable user ID
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-
-      // Users can delete their own document
       allow delete: if isExistingOwner(userId);
     }
 
