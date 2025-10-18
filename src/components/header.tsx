@@ -16,14 +16,11 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings, Shield } from 'lucide-react';
+import { Menu, Search, Heart, MessageCircle, PlusCircle, User, LogOut, Settings, List } from 'lucide-react';
 import { Logo } from './logo';
 import { useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { useDoc } from '@/firebase/firestore/use-doc';
-import { doc } from 'firebase/firestore';
-import { useMemo } from 'react';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -32,11 +29,8 @@ const navLinks = [
 ];
 
 export default function Header() {
-  const { user, auth, firestore } = useUser();
+  const { user, auth } = useUser();
   const router = useRouter();
-
-  const userDocRef = useMemo(() => user && firestore ? doc(firestore, 'users', user.uid) : null, [user, firestore]);
-  const { data: userData } = useDoc(userDocRef);
   
   const handleLogout = async () => {
     if (!auth) return;
@@ -105,13 +99,13 @@ export default function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/admin')}>
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>Admin Panel</span>
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/profile')}>
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
+                  </DropdownMenuItem>
+                   <DropdownMenuItem onClick={() => router.push('/profile')}>
+                    <List className="mr-2 h-4 w-4" />
+                    <span>My Listings</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push('/chat')}>
                     <MessageCircle className="mr-2 h-4 w-4" />
